@@ -1,260 +1,124 @@
 # COREX Framework
 
-> A modern FiveM framework for Zombie Survival gameplay — built on a simple table architecture with StateBag synchronization, Lua 5.4, and oxmysql.
+> FiveM Zombie-Survival framework — Lua 5.4, oxmysql, StateBag sync.
+
+## Resources
+`corex-core` • `corex-spawn` • `corex-inventory` • `corex-weather` • `corex-death` • `corex-crafting` • `corex-hud` • `corex-events`
 
 ---
 
-## Features
+## Quick Start
 
-- **Simple Table Architecture** — no OOP, all operations via `Corex.Functions`
-- **StateBag sync** instead of network events
-- **Tetris grid inventory** (corex-inventory)
-- **Character creation & spawn flow** (corex-spawn)
-- **Dynamic weather & time** (corex-weather)
-- **Death/respawn system** (corex-death)
-- **Crafting system** (corex-crafting)
-- **HUD overlay** (corex-hud)
-- **Core player, money, metadata & persistence** (corex-core)
-
----
-
-## Requirements
-
-| Dependency | Version |
-|---|---|
-| [FiveM Server Artifact](https://runtime.fivem.net/artifacts/fivem/build_server_windows/master/) | latest recommended |
-| MySQL / MariaDB | 5.7+ / 10.4+ |
-| [oxmysql](https://github.com/overextended/oxmysql) | latest (included) |
-| Lua | 5.4 (set per resource) |
-| Cfx.re License Key | [Generate here](https://keymaster.fivem.net/) |
-
----
-
-## Installation
-
-### 1. Clone the repo
-
+### 1. Clone
 ```bash
 git clone https://github.com/ABUGIZA/COREX-Framework.git
 cd COREX-Framework
 ```
 
-### 2. Install the FiveM server binary (FXServer)
+### 2. Download FXServer
+Get the latest Windows build → <https://runtime.fivem.net/artifacts/fivem/build_server_windows/master/>
+Extract into `FXServer/` at the project root.
 
-The `FXServer/` folder is **not** included in this repo.
-
-1. Download the latest recommended build:
-   👉 https://runtime.fivem.net/artifacts/fivem/build_server_windows/master/
-2. Extract the contents to `FXServer/` at the project root.
-
-Final structure should look like:
-```
-COREX-Framework/
-├── FXServer/
-│   ├── FXServer.exe
-│   ├── run.cmd
-│   └── ...
-└── server-file/
-```
-
-### 3. Create your `server.cfg`
-
+### 3. Create `server.cfg`
 ```bash
 cd server-file
 copy server.cfg.example server.cfg
-notepad server.cfg
 ```
-
-Edit the following keys:
-- `sv_licenseKey` → your Cfx.re key from <https://keymaster.fivem.net/>
+Edit and set:
+- `sv_licenseKey` → <https://keymaster.fivem.net/>
 - `mysql_connection_string` → `mysql://USER:PASSWORD@localhost/corex?charset=utf8mb4`
-- `add_principal` → your FiveM/Discord identifiers for admin access
 
-### 4. Set up the database
+### 4. Create the database
 
-Create a database named `corex` and import the schema:
+Run this SQL once in your MySQL client (HeidiSQL / phpMyAdmin / CLI):
 
-```bash
-mysql -u root -p -e "CREATE DATABASE corex CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
-mysql -u root -p corex < server-file/resources/[corex]/corex-core/sql/corex_framework.sql
+```sql
+CREATE DATABASE IF NOT EXISTS `corex`
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+USE `corex`;
+
+CREATE TABLE IF NOT EXISTS `players` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `identifier` VARCHAR(60) NOT NULL,
+    `name` VARCHAR(50) NOT NULL DEFAULT 'Unknown',
+    `money` LONGTEXT NOT NULL,
+    `metadata` LONGTEXT NOT NULL,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `identifier` (`identifier`),
+    KEY `idx_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `inventories` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `identifier` VARCHAR(60) NOT NULL,
+    `inventory_type` VARCHAR(50) NOT NULL DEFAULT 'player',
+    `inventory_id` VARCHAR(60) NOT NULL,
+    `items` LONGTEXT NOT NULL,
+    `hotbar` LONGTEXT NOT NULL,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `unique_inventory` (`identifier`, `inventory_type`, `inventory_id`),
+    KEY `idx_inventory_lookup` (`identifier`, `inventory_type`),
+    KEY `idx_inventory_id` (`inventory_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
-### 5. Run FXServer (first-time launch)
-
-Double-click `FXServer/run.cmd` — or from terminal:
-
-```bash
-FXServer\run.cmd
-```
-
-The console will show:
-
-```
-All ready! Please access:
-  http://localhost:40120/
-```
+### 5. Start FXServer
+Double-click `FXServer/run.cmd` → open **<http://localhost:40120/>**
 
 ---
 
-## 🖥️ txAdmin Setup Wizard (first run)
+## txAdmin Setup (first run)
 
-Open **<http://localhost:40120/>** in your browser. First-time setup:
-
-### Step 1 — Create your PIN
-Set a 4-digit PIN. Save it — you'll use it to log in.
-
-### Step 2 — Link Cfx.re account (or create local admin)
-Either link your keymaster.fivem.net account, or create a local admin user with username + password.
-
-### Step 3 — Server Name
-Enter any short name, e.g. `COREX Zombies`.
-
-### Step 4 — Deployment Type
-Choose **📁 Existing Server Data** (NOT Popular Recipes or Remote URL).
-
-### Step 5 — Server Data Folder
-Enter the absolute path to `server-file`:
-```
-C:\COREX_Framework\server-file
-```
-(Adjust if your clone path is different.)
-
-### Step 6 — Server CFG File
-Enter:
-```
-server.cfg
-```
-(Relative to the data folder — txAdmin should show **"Config file detected!"** in green.)
-
-Click **Save**.
-
-### Step 7 — Start the server
-On the txAdmin dashboard click the green **Start Server** button. Watch the Live Console — you should see:
-
-```
-Started resource corex-core
-Started resource corex-spawn
-Started resource corex-inventory
-[oxmysql] Database server connection established!
-```
-
-If you see any red errors, check:
-- MySQL is running and the `corex` database exists
-- `mysql_connection_string` credentials are correct
-- Port `30120` is free (TCP + UDP)
+1. Set PIN → link Cfx.re (or local admin)
+2. **Deployment Type:** `Existing Server Data`
+3. **Server Data Folder:** `C:\COREX_Framework\server-file`
+4. **CFG File:** `server.cfg`
+5. Save → click **Start Server**
 
 ---
 
-## Project Structure
+## API
 
-```
-COREX-Framework/
-├── FXServer/                 # FiveM binary (not in repo — download separately)
-├── txData/                   # txAdmin data (not in repo — per-server)
-└── server-file/
-    ├── server.cfg.example    # Config template (copy to server.cfg)
-    └── resources/
-        ├── [cfx-default]/    # Default cfx resources
-        ├── [standalone]/     # Third-party resources (oxmysql, etc.)
-        ├── [assets]/         # Map / prop assets
-        └── [corex]/          # COREX framework resources
-            ├── corex-core/       # Player, DB, state management
-            ├── corex-spawn/      # Character creation & spawn
-            ├── corex-inventory/  # Tetris grid inventory
-            ├── corex-weather/    # Weather & time
-            ├── corex-death/      # Death / respawn
-            ├── corex-crafting/   # Crafting system
-            ├── corex-hud/        # HUD overlay
-            └── corex-events/     # Global event system
-```
-
----
-
-## Core API — Quick Reference
-
-### Server-side
-
+### Server
 ```lua
 local player = Corex.Functions.GetPlayer(source)
-local name   = player.name
-local cash   = player.money.cash
-
 Corex.Functions.AddMoney(source, 'cash', 500)
-Corex.Functions.RemoveMoney(source, 'bank', 100)
 Corex.Functions.SetMetaData(source, 'hunger', 100)
 Corex.Functions.SavePlayer(source)
 ```
 
-### Client-side
-
+### Client
 ```lua
 local data = Corex.Functions.GetPlayerData()
 local cash = Corex.Functions.GetMoney('cash')
-local skin = Corex.Functions.GetMetaData('skin')
 ```
 
-### Using COREX from another resource
-
+### From another resource
 ```lua
 -- fxmanifest.lua
 dependencies { 'corex-core' }
 
 -- main.lua
 local Corex = exports['corex-core']:GetCoreObject()
-local player = Corex.Functions.GetPlayer(source)
 ```
-
----
-
-## Useful Links
-
-| Resource | Link |
-|---|---|
-| txAdmin Dashboard (after setup) | <http://localhost:40120/> |
-| FXServer Windows Artifacts | <https://runtime.fivem.net/artifacts/fivem/build_server_windows/master/> |
-| Cfx.re Keymaster (license keys) | <https://keymaster.fivem.net/> |
-| FiveM Docs | <https://docs.fivem.net/> |
-| txAdmin Docs | <https://github.com/tabarra/txAdmin> |
-| oxmysql Docs | <https://github.com/overextended/oxmysql> |
-
----
-
-## Development Rules
-
-1. **Never call FiveM natives directly** — use `Corex.Functions.*`
-2. **Missing function?** Add it to `corex-core` first, then use it
-3. **No duplication** — reuse core logic
-4. **Lua 5.4 compliant**, modular, defensive
-5. **UI must follow** the Anti-Default Protocol (premium fonts, Bento grid, micro-interactions)
-
----
-
-## Contributing
-
-1. Fork the repo
-2. Create a branch: `git checkout -b feat/my-feature`
-3. Follow the architecture rules
-4. Commit with conventional style: `feat:`, `fix:`, `refactor:`, `docs:`
-5. Open a Pull Request
 
 ---
 
 ## Troubleshooting
 
-**txAdmin asks to create a new deployment**
-→ You picked the wrong option. Go back and choose **Existing Server Data**.
-
-**`Config file detected!` never appears**
-→ `server.cfg` isn't in `server-file/`. Make sure you copied `server.cfg.example` to `server.cfg`.
-
-**`oxmysql` fails to connect**
-→ Check MySQL is running, the `corex` database exists, and credentials in `mysql_connection_string` are correct.
-
-**Port 30120 already in use**
-→ Another FiveM server is running, or change the port in `server.cfg` (`endpoint_add_tcp` / `endpoint_add_udp`).
+| Problem | Fix |
+|---|---|
+| txAdmin asks for a new deployment | Choose **Existing Server Data** instead |
+| `Config file detected` not showing | Copy `server.cfg.example` → `server.cfg` first |
+| oxmysql connection fails | Check MySQL is running + credentials in `server.cfg` |
+| Port 30120 in use | Close other FiveM server or change port in `server.cfg` |
 
 ---
 
 ## License
-
-Private repository — all rights reserved until explicitly open-sourced.
+Private — all rights reserved.
