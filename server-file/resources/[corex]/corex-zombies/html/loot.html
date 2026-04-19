@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COREX Loot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        #loot-container {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 12px;
+            pointer-events: none;
+        }
+
+        .loot-notification {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.9), rgba(30, 30, 30, 0.85));
+            backdrop-filter: blur(12px);
+            padding: 12px 20px;
+            border-radius: 12px;
+            border-left: 4px solid;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+            animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            min-width: 280px;
+        }
+
+        .loot-notification.common {
+            border-left-color: #9ca3af;
+        }
+
+        .loot-notification.rare {
+            border-left-color: #3b82f6;
+        }
+
+        .loot-notification.legendary {
+            border-left-color: #f59e0b;
+            box-shadow: 0 4px 24px rgba(245, 158, 11, 0.3);
+        }
+
+        .loot-notification.fadeOut {
+            animation: slideOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            to {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+        }
+
+        .loot-icon {
+            width: 42px;
+            height: 42px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .loot-details {
+            flex: 1;
+        }
+
+        .loot-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 2px;
+        }
+
+        .loot-amount {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .loot-rarity {
+            font-size: 11px;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .loot-rarity.common {
+            background: rgba(156, 163, 175, 0.2);
+            color: #9ca3af;
+        }
+
+        .loot-rarity.rare {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+        }
+
+        .loot-rarity.legendary {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+    </style>
+</head>
+<body>
+    <div id="loot-container"></div>
+
+    <script>
+        const lootContainer = document.getElementById('loot-container');
+        let notificationId = 0;
+
+        window.addEventListener('message', function(event) {
+            const data = event.data;
+
+            if (data.action === 'showLoot') {
+                const id = ++notificationId;
+                const notification = createLootNotification(data, id);
+                lootContainer.appendChild(notification);
+
+                setTimeout(() => {
+                    notification.classList.add('fadeOut');
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            notification.parentNode.removeChild(notification);
+                        }
+                    }, 300);
+                }, 5000);
+            }
+        });
+
+        function createLootNotification(data, id) {
+            const div = document.createElement('div');
+            div.className = `loot-notification ${data.rarity || 'common'}`;
+            div.id = `loot-${id}`;
+
+            const icon = getItemIcon(data.item);
+
+            div.innerHTML = `
+                <div class="loot-icon">${icon}</div>
+                <div class="loot-details">
+                    <div class="loot-name">${data.itemLabel || data.item}</div>
+                    <div class="loot-amount">+${data.amount}</div>
+                </div>
+                <div class="loot-rarity ${data.rarity || 'common'}">${data.rarity || 'common'}</div>
+            `;
+
+            return div;
+        }
+
+        function getItemIcon(itemName) {
+            const icons = {
+                'bread': '🍞',
+                'water': '💧',
+                'bandage': '🩹',
+                'medkit': '⚕️',
+                'pistol_ammo': '🔫',
+                'rifle_ammo': '🎯',
+                'weapon_pistol': '🔫',
+                'weapon_smg': '🔫',
+                'default': '📦'
+            };
+
+            return icons[itemName] || icons['default'];
+        }
+    </script>
+</body>
+</html>

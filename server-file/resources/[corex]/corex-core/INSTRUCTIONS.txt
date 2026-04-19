@@ -1,0 +1,820 @@
+═══════════════════════════════════════════════════════════════════════════════════════
+                        📘 COREX FRAMEWORK - دليل شامل للتعلم والتطوير
+═══════════════════════════════════════════════════════════════════════════════════════
+النسخة: 2.0.0
+التاريخ: 2026
+الهدف: إطار عمل نظيف ومُحسّن لمئات المبرمجين لتطوير Zombie Survival
+═══════════════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                              🎯 نظرة عامة على COREX-CORE                           │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+
+COREX-Core هو القلب النابض لإطار COREX Framework. يوفّر:
+  ✓ نظام إدارة اللاعبين بدون OOP (جداول بسيطة)
+  ✓ نظام StateBag للمزامنة التلقائية بين Server/Client
+  ✓ مجموعة شاملة من الدوال المساعدة (Utils)
+  ✓ نظام التحقق والتصديق (Validation)
+  ✓ نظام الأحداث والـ Callbacks
+  ✓ نظام التفاعل مع الكائنات (Interact System)
+  ✓ إعدادات الـ World للأبوكاليبس (تعطيل الشرطة، NPCs)
+
+═══════════════════════════════════════════════════════════════════════════════════════
+
+
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                           📂 هيكل الملفات والمجلدات                                │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+
+corex-core/
+├── config.lua              ⚙️ الإعدادات الأساسية
+├── fxmanifest.lua          📦 ملف التعريف
+├── corex_api.md            📚 وثائق API
+├── README.md               📖 دليل التثبيت
+│
+├── shared/                 🔗 مشترك بين Server و Client
+│   ├── debug.lua           🐞 نظام Debug و Logging
+│   ├── utils.lua           🛠️ دوال مساعدة عامة
+│   └── validation.lua      ✅ دوال التحقق والتصديق
+│
+├── server/                 🖥️ Server-Side
+│   ├── main.lua            🚀 نقطة البداية
+│   ├── players.lua         👤 إدارة اللاعبين
+│   ├── state.lua           📊 إدارة الحالات
+│   └── utils.lua           🔧 دوال مساعدة Server
+│
+├── client/                 💻 Client-Side
+│   ├── main.lua            🎮 نقطة البداية
+│   ├── cl_interact.lua     🖱️ نظام التفاعل
+│   └── cl_world.lua        🌍 إعدادات العالم
+│
+├── html/                   🌐 واجهة UI
+│   └── interact.html       📝 UI التفاعل
+│
+└── sql/                    🗄️ قاعدة البيانات
+    └── players.sql         💾 جدول اللاعبين
+
+═══════════════════════════════════════════════════════════════════════════════════════
+
+
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                          🔍 الشرح التفصيلي لكل ملف ودالة                          │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1️⃣  CONFIG.LUA - ملف الإعدادات الأساسية
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📌 الهدف: تخزين جميع الإعدادات الأساسية للإطار
+
+🔑 الإعدادات الرئيسية:
+┌──────────────────────────┬───────────────────────────────────────────────────────┐
+│ المتغير                  │ الوصف                                                 │
+├──────────────────────────┼───────────────────────────────────────────────────────┤
+│ Config.Debug             │ تفعيل/إيقاف رسائل Debug                              │
+│ Config.FrameworkName     │ اسم الإطار                                            │
+│ Config.Version           │ رقم النسخة                                            │
+│ Config.PlayerStates      │ حالات اللاعب (loading, active, dead, spectating)     │
+│ Config.Identifiers       │ معرّفات اللاعب (license, fivem)                      │
+│ Config.CallbackTimeout   │ مدة انتظار Callback (10 ثوان)                       │
+│ Config.EventPrefix       │ بادئة الأحداث (corex)                                │
+│ Config.Database          │ إعدادات قاعدة البيانات (oxmysql)                     │
+│ Config.Notify            │ إعدادات الإشعارات (المدة، الموقع، الأنواع)           │
+└──────────────────────────┴───────────────────────────────────────────────────────┘
+
+✅ ضروري - لا تحذف
+❗ يمكن تخصيص القيم حسب احتياجاتك
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2️⃣  SHARED/UTILS.LUA - مكتبة الدوال المساعدة
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📌 الهدف: توفير دوال مساعدة عامة تُستخدم في Server و Client
+
+📋 الدوال المتوفرة:
+┌─────────────────────────────────┬───────────────────────────────────────────────┐
+│ الدالة                          │ الوصف                                         │
+├─────────────────────────────────┼───────────────────────────────────────────────┤
+│ DeepCopy(tbl)                   │ نسخ عميق لجدول (حماية من المراجع المشتركة)   │
+│ TableContains(tbl, value)       │ التحقق إذا الجدول يحتوي على قيمة معينة       │
+│ MergeConfig(defaults, overrides)│ دمج جدولين (مفيد للإعدادات)                  │
+│ GenerateUUID()                  │ إنشاء معرّف فريد UUID                         │
+│ Round(num, decimals)            │ تقريب رقم لأرقام عشرية محددة                 │
+│ TableLength(tbl)                │ عدد عناصر الجدول (حتى غير المتسلسلة)          │
+│ SafeGet(tbl, ...)               │ الوصول الآمن للجداول المتداخلة               │
+│ FormatNumber(num)               │ تنسيق الأرقام بفواصل (1000000 -> 1,000,000) │
+│ Wait(ms)                        │ انتظار بالميللي ثانية                        │
+│ GetDistance(x1,y1,z1,x2,y2,z2)  │ حساب المسافة بين نقطتين 3D                   │
+│ GetDistanceVec(vec1, vec2)      │ حساب المسافة بين vector3 (محسّنة)            │
+└─────────────────────────────────┴───────────────────────────────────────────────┘
+
+💡 أمثلة الاستخدام:
+```lua
+-- نسخ جدول آمنة
+local original = {health = 100, items = {sword = 5}}
+local copy = COREX.Utils.DeepCopy(original)
+copy.health = 50  -- لا يؤثر على original
+
+-- دمج إعدادات
+local defaults = {speed = 1.0, health = 100}
+local custom = {health = 150}
+local final = COREX.Utils.MergeConfig(defaults, custom)
+-- final = {speed = 1.0, health = 150}
+
+-- UUID فريد
+local id = COREX.Utils.GenerateUUID()
+-- "a3f12b8c-4d2e-4a1b-9c3d-5e6f7a8b9c0d"
+
+-- تنسيق رقم
+print(COREX.Utils.FormatNumber(1500000))  -- "1,500,000"
+
+-- حساب مسافة
+local dist = COREX.Utils.GetDistanceVec(vector3(0,0,0), vector3(10,10,10))
+```
+
+✅ ضروري - جميع الدوال مفيدة، لا تحذف
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3️⃣  SHARED/DEBUG.LUA - نظام الـ Debug والتسجيل
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📌 الهدف: طباعة رسائل تنقيح ملونة في Console
+
+📋 الدوال المتوفرة:
+┌────────────────────────┬──────────────────────────────────────────────────────┐
+│ الدالة                 │ الوصف                                                 │
+├────────────────────────┼──────────────────────────────────────────────────────┤
+│ Print(...)             │ طباعة رسالة عادية (فقط إذا Debug = true)            │
+│ Log(level, msg)        │ طباعة رسالة حسب المستوى (1-4)                       │
+│ Dump(tbl, indent)      │ طباعة محتويات جدول بشكل منسق                        │
+└────────────────────────┴──────────────────────────────────────────────────────┘
+
+📊 مستويات الـ Log:
+  1 = ERROR   (أحمر)   - أخطاء خطيرة
+  2 = WARNING (أصفر)   - تحذيرات
+  3 = INFO    (بنفسجي) - معلومات عامة
+  4 = VERBOSE (أبيض)   - تفاصيل دقيقة
+
+💡 مثال:
+```lua
+COREX.Debug.Print('[COREX] Server started')
+COREX.Debug.Log(1, 'Player not found!')  -- ERROR
+COREX.Debug.Log(3, 'Player joined')      -- INFO
+COREX.Debug.Dump({health = 100, name = "Ahmed"})
+```
+
+⚠️ يمكن تحسينه: أضف دوال مختصرة مثل:
+```lua
+COREX.Debug.Error(msg)   -- بدلاً من Log(1, msg)
+COREX.Debug.Warn(msg)    -- بدلاً من Log(2, msg)
+COREX.Debug.Info(msg)    -- بدلاً من Log(3, msg)
+COREX.Debug.Verbose(msg) -- بدلاً من Log(4, msg)
+```
+
+✅ ضروري - مفيد لتتبع الأخطاء
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4️⃣  SHARED/VALIDATION.LUA - دوال التحقق والتصديق
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📌 الهدف: التحقق من البيانات المُدخلة (Input Validation)
+
+📋 الدوال المتوفرة:
+┌──────────────────────────────┬──────────────────────────────────────────────────┐
+│ الدالة                       │ الوصف                                            │
+├──────────────────────────────┼──────────────────────────────────────────────────┤
+│ IsNumber(val)                │ هل القيمة رقم؟                                   │
+│ IsString(val)                │ هل القيمة نص؟                                    │
+│ IsTable(val)                 │ هل القيمة جدول؟                                  │
+│ IsFunction(val)              │ هل القيمة دالة؟                                  │
+│ IsBoolean(val)               │ هل القيمة Boolean؟                               │
+│ IsNil(val)                   │ هل القيمة nil؟                                   │
+│ Exists(val)                  │ هل القيمة موجودة (ليست nil)؟                    │
+│ InRange(val, min, max)       │ هل الرقم ضمن النطاق؟                            │
+│ NotEmpty(val)                │ هل النص/الجدول ليس فارغاً؟                      │
+│ IsPositive(val)              │ هل الرقم موجب؟                                   │
+│ IsValidSource(source)        │ هل source صحيح؟                                  │
+│ Matches(val, pattern)        │ هل النص يطابق النمط؟                            │
+│ Clamp(val, min, max)         │ تحديد الرقم ضمن النطاق                          │
+│ SanitizeString(val)          │ تنظيف النص من الأحرف الخطيرة                    │
+│ Assert(condition, errorMsg)  │ التأكد من شرط                                    │
+└──────────────────────────────┴──────────────────────────────────────────────────┘
+
+💡 مثال:
+```lua
+if not COREX.Validate.IsValidSource(source) then
+    return print('Invalid source!')
+end
+
+if not COREX.Validate.InRange(amount, 0, 1000) then
+    return print('Amount must be between 0-1000')
+end
+
+local safe = COREX.Validate.Clamp(value, 0, 100)  -- يحدد القيمة بين 0-100
+```
+
+✅ ضروري - حماية من البيانات الخاطئة والاختراق
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5️⃣  SERVER/MAIN.LUA - نقطة البداية Server
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📌 الهدف: تهيئة الإطار على الـ Server وتوفير دوال أساسية
+
+📋 الدوال المتوفرة:
+┌────────────────────────────────────┬─────────────────────────────────────────────┐
+│ الدالة                             │ الوصف                                       │
+├────────────────────────────────────┼─────────────────────────────────────────────┤
+│ GetCoords(entity)                  │ الحصول على إحداثيات كيان + الاتجاه         │
+│ GetIdentifier(source, idType)      │ الحصول على معرّف اللاعب                   │
+│ Notify(source, msg, type, duration)│ إرسال إشعار للاعب                          │
+│ KickPlayer(source, reason)         │ طرد لاعب                                   │
+│ GetPlayerPed(source)               │ الحصول على Ped اللاعب                     │
+│ CreateCallback(name, handler)      │ تسجيل Callback جديد                        │
+│ TriggerClientCallback(...)         │ استدعاء Callback من الـ Client            │
+└────────────────────────────────────┴─────────────────────────────────────────────┘
+
+🎯 الأحداث:
+  • corex:server:ready      - يُطلق عند جاهزية Server
+  • corex:callback:request  - يستقبل طلبات Callback من Client
+
+💡 مثال:
+```lua
+local Corex = exports['corex-core']:GetCoreObject()
+
+Corex.Functions.CreateCallback('myCallback', function(source, data)
+    return {success = true, msg = 'Hello ' .. data.name}
+end)
+```
+
+✅ ضروري - القلب النابض للـ Server
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6️⃣  SERVER/PLAYERS.LUA - إدارة اللاعبين (الأهم!) ⭐
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📌 الهدف: إدارة بيانات اللاعبين، الحفظ التلقائي، نظام Smart Save
+
+🏗️ هيكل بيانات اللاعب:
+```lua
+{
+    source = 1,
+    identifier = 'license:abc123',
+    name = 'Ahmed',
+    money = { cash = 100, bank = 500 },
+    metadata = {
+        hunger = 100,
+        thirst = 100,
+        stress = 0,
+        infection = 0,
+        lastPosition = {x=0, y=0, z=0}
+    },
+    isBusy = false,    -- قفل لمنع Duping
+    isDirty = false,   -- علامة للحفظ الذكي
+    lastSave = 1234567890
+}
+```
+
+📋 الدوال المتوفرة:
+┌──────────────────────────────────┬──────────────────────────────────────────────┐
+│ الدالة                           │ الوصف                                        │
+├──────────────────────────────────┼──────────────────────────────────────────────┤
+│ Create(source, dbData)           │ إنشاء لاعب جديد في الذاكرة                  │
+│ Load(source)                     │ تحميل لاعب من DB أو إنشاء جديد              │
+│ Get(source)                      │ الحصول على بيانات لاعب                      │
+│ GetByIdentifier(identifier)      │ الحصول على لاعب بواسطة معرّفه               │
+│ Save(source, force)              │ حفظ بيانات اللاعب (Smart Save)              │
+│ SetBusy(source, state)           │ قفل/فك قفل اللاعب (ضد Duping)               │
+│ IsBusy(source)                   │ التحقق من قفل اللاعب                        │
+│ SetMetaData(source, key, value)  │ تعديل Metadata                               │
+│ GetMetaData(source, key)         │ قراءة Metadata                               │
+└──────────────────────────────────┴──────────────────────────────────────────────┘
+
+🎯 الأحداث:
+  • corex:server:playerReady - يُطلق عند جاهزية اللاعب
+  • corex:server:loadPlayer  - طلب تحميل بيانات اللاعب
+  • playerDropped            - عند خروج اللاعب (يحفظ تلقائياً)
+
+⏰ الحلقات التلقائية:
+  • Auto-Save: كل 5 دقائق يحفظ جميع اللاعبين
+  • Player Drop: حفظ تلقائي عند خروج اللاعب
+
+💡 أمثلة الاستخدام:
+```lua
+-- الحصول على لاعب
+local player = exports['corex-core']:GetPlayer(source)
+print(player.name)
+print(player.money.cash)
+
+-- تعديل Metadata
+exports['corex-core']:SetMetaData(source, 'hunger', 50)
+
+-- قفل اللاعب (ضد Duping)
+if exports['corex-core']:IsBusy(source) then
+    return print('Player is busy!')
+end
+exports['corex-core']:SetBusy(source, true)
+-- افعل شيء...
+exports['corex-core']:SetBusy(source, false)
+
+-- حفظ يدوي
+exports['corex-core']:SavePlayer(source, true)
+```
+
+🚨 ميزة Smart Save:
+  • isDirty = false → لا يحفظ (لا تغيير)
+  • isDirty = true  → يحفظ
+  • force = true    → يحفظ حتى لو isDirty = false
+
+✅ ضروري - جوهر النظام، لا تحذف!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7️⃣  SERVER/STATE.LUA - إدارة حالات اللاعبين
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📌 الهدف: تتبع حالة دورة حياة اللاعب (loading, active, dead, spectating)
+
+📋 الدوال المتوفرة:
+┌────────────────────────────────┬──────────────────────────────────────────────┐
+│ الدالة                         │ الوصف                                        │
+├────────────────────────────────┼──────────────────────────────────────────────┤
+│ SetPlayerState(source, state)  │ تعيين حالة اللاعب                           │
+│ GetPlayerState(source)         │ قراءة حالة اللاعب                           │
+│ GetPlayersByState(state)       │ الحصول على جميع اللاعبين بحالة معينة        │
+└────────────────────────────────┴──────────────────────────────────────────────┘
+
+🎯 الحالات المتاحة:
+  • loading    - اللاعب يحمّل
+  • active     - اللاعب نشط
+  • dead       - اللاعب ميت
+  • spectating - اللاعب يراقب
+
+💡 مثال:
+```lua
+COREX.State.SetPlayerState(source, 'dead')
+local state = COREX.State.GetPlayerState(source)  -- 'dead'
+
+local deadPlayers = COREX.State.GetPlayersByState('dead')
+```
+
+❓ هل هو ضروري؟
+  ⚠️ يمكن دمجه في players.lua أو إزالته إذا لم تستخدم نظام حالات معقد
+  ✅ احتفظ به إذا كنت تريد تتبع دقيق لحالة اللاعبين
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8️⃣  SERVER/UTILS.LUA - دوال مساعدة Server
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📌 الهدف: دوال مساعدة خاصة بالـ Server
+
+📋 الدوال المتوفرة:
+┌────────────────────────────────────────┬────────────────────────────────────────┐
+│ الدالة                                 │ الوصف                                  │
+├────────────────────────────────────────┼────────────────────────────────────────┤
+│ GetResourceState(resourceName)         │ حالة Resource                         │
+│ IsResourceStarted(resourceName)        │ هل الـ Resource يعمل؟                 │
+│ GetPlayerSources()                     │ قائمة بجميع sources اللاعبين          │
+│ KickPlayer(source, reason)             │ طرد لاعب                              │
+│ SendChatMessage(source, author, msg)   │ إرسال رسالة Chat                      │
+│ Broadcast(author, msg)                 │ بث رسالة لجميع اللاعبين               │
+│ GetPlayerPed(source)                   │ الحصول على Ped اللاعب                │
+│ GetPlayerCoords(source)                │ الحصول على إحداثيات اللاعب            │
+│ GetDistanceBetweenPlayers(s1, s2)      │ حساب المسافة بين لاعبين               │
+│ IsPlayerNearPlayer(s1, s2, maxDist)    │ هل اللاعب قريب من لاعب آخر؟          │
+│ GetUptime()                            │ مدة تشغيل السيرفر بالثواني            │
+└────────────────────────────────────────┴────────────────────────────────────────┘
+
+💡 مثال:
+```lua
+local sources = COREX.Server.GetPlayerSources()
+for _, src in ipairs(sources) do
+    print('Player: ' .. src)
+end
+
+COREX.Server.Broadcast('SERVER', 'مرحباً بالجميع!')
+
+local coords = COREX.Server.GetPlayerCoords(source)
+print(coords.x, coords.y, coords.z)
+```
+
+✅ ضروري - دوال مفيدة للـ Server
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+9️⃣  CLIENT/MAIN.LUA - نقطة البداية Client
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📌 الهدف: توفير دوال Client شاملة للعمل مع اللاعب والكيانات
+
+📋 فئات الدوال:
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║  🎮 دوال اللاعب الأساسية                                                     ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+  • GetCoords()              - إحداثيات اللاعب
+  • GetPed()                 - Ped اللاعب
+  • IsAlive()                - هل اللاعب حي؟
+  • GetHealth() / SetHealth()- الصحة (0-100)
+  • GetArmour() / SetArmour()- الدرع (0-100)
+  • IsInVehicle()            - هل في سيارة؟
+  • GetVehicle()             - الحصول على السيارة
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║  🔔 الإشعارات                                                                 ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+  • Notify(message, type, duration)
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║  🚀 دوال التحكم باللاعب                                                      ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+  • Teleport(coords)         - نقل اللاعب
+  • Freeze(freeze)           - تجميد اللاعب
+  • Resurrect(coords)        - إحياء اللاعب
+  • ScreenFadeOut/In()       - تأثيرات الشاشة
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║  📏 دوال المسافة                                                              ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+  • GetDistanceTo(coords)    - المسافة من اللاعب
+  • IsNear(coords, distance) - هل قريب؟
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║  🧩 دوال النماذج والكيانات                                                   ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+  • LoadModel(model)         - تحميل موديل
+  • CreatePed(...)           - إنشاء Ped
+  • SpawnProp(...)           - إنشاء Object
+  • DeleteProp(entity)       - حذف كيان
+  • SetEntityOutline(...)    - تحديد الكيان بإطار ملون
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║  💰 دوال البيانات (StateBag Sync)                                            ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+  • GetPlayerData()          - جميع بيانات اللاعب
+  • GetMoney(type)           - المال (cash/bank)
+  • GetMetaData(key)         - الـ Metadata
+  • GetName()                - الاسم
+  • GetIdentifier()          - المعرّف
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║  📞 نظام Callbacks                                                            ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+  • CreateClientCallback(name, handler)
+  • TriggerCallback(name, cb, ...)
+
+💡 أمثلة:
+```lua
+local Corex = exports['corex-core']:GetCoreObject()
+
+-- الحصول على بيانات اللاعب
+local health = Corex.Functions.GetHealth()
+local money = Corex.Functions.GetMoney('cash')
+
+-- نقل اللاعب
+Corex.Functions.Teleport(vector4(0, 0, 100, 0))
+
+-- إنشاء Zombie
+local zombie = Corex.Functions.CreatePed(4, 'a_m_y_zombie_01', vector3(0,0,0), 0)
+
+-- حذف Object
+Corex.Functions.DeleteProp(prop)
+
+-- إشعار
+Corex.Functions.Notify('مرحباً!', 'success', 3000)
+```
+
+✅ ضروري - أساسي لكل Client
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔟 CLIENT/CL_INTERACT.LUA - نظام التفاعل
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📌 الهدف: نظام تفاعل مع الكيانات (E للتفاعل)
+
+🎯 كيف يعمل:
+  1. تضيف Target على كيان (Entity)
+  2. اللاعب يقترب → تظهر رسالة UI
+  3. يضغط E → ينفذ callback
+
+📋 الدوال:
+┌─────────────────────────────┬─────────────────────────────────────────────────┐
+│ الدالة                      │ الوصف                                           │
+├─────────────────────────────┼─────────────────────────────────────────────────┤
+│ AddTarget(entity, data)     │ إضافة تفاعل على كيان                           │
+│ RemoveTarget(entity)        │ إزالة التفاعل                                   │
+│ GetClosestTarget()          │ الحصول على أقرب Target                         │
+└─────────────────────────────┴─────────────────────────────────────────────────┘
+
+💡 مثال:
+```lua
+local zombie = CreatePed(...)
+
+exports['corex-core']:AddTarget(zombie, {
+    text = "اقتل الزومبي",
+    icon = "fa-skull",
+    distance = 3.0,
+    callback = function(entity, data)
+        print('تم الضغط على الزومبي!')
+        DeleteEntity(entity)
+    end,
+    data = {zombieId = 123}
+})
+```
+
+🎮 التحكم:
+  • E (38) - التفاعل
+
+✅ ضروري - نظام تفاعل أساسي
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1️⃣1️⃣  CLIENT/CL_WORLD.LUA - إعدادات العالم (الأبوكاليبس)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📌 الهدف: تهيئة العالم لبيئة Zombie Survival
+
+🌍 ما يفعله:
+  ✓ تعطيل جميع خدمات الطوارئ (شرطة، إطفاء، إسعاف)
+  ✓ إيقاف توليد NPCs التلقائي
+  ✓ تقليل كثافة السيارات (30%)
+  ✓ تعطيل Stars / Wanted Level
+  ✓ إيقاف صفارات الإنذار
+  ✓ إعادة ضبط علاقات المجموعات (Relationships)
+
+⚙️ الحلقات:
+  • Thread 1: تعطيل خدمات الطوارئ عند البدء
+  • Thread 2: إزالة Wanted Level + تقليل كثافة NPCs
+  • Thread 3: ضبط علاقات المجموعات
+
+✅ ضروري - لخلق جو Apocalypse حقيقي
+
+
+═══════════════════════════════════════════════════════════════════════════════════════
+
+
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                      ⚠️ ملخص: ما يمكن حذفه / تحسينه                               │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+
+╔═════════════════════════════════════════════════════════════════════════════════════╗
+║  ✅ الملفات الضرورية (لا تحذف)                                                    ║
+╚═════════════════════════════════════════════════════════════════════════════════════╝
+  1. config.lua              - الإعدادات الأساسية
+  2. shared/utils.lua        - دوال مساعدة مهمة
+  3. shared/debug.lua        - نظام Debug
+  4. shared/validation.lua   - حماية من الاختراق
+  5. server/main.lua         - قلب Server
+  6. server/players.lua      - إدارة اللاعبين (أهم ملف!)
+  7. server/utils.lua        - دوال Server
+  8. client/main.lua         - قلب Client
+  9. client/cl_interact.lua  - نظام التفاعل
+ 10. client/cl_world.lua     - إعدادات Apocalypse
+
+╔═════════════════════════════════════════════════════════════════════════════════════╗
+║  ⚠️ ملفات يمكن تحسينها / دمجها                                                    ║
+╚═════════════════════════════════════════════════════════════════════════════════════╝
+
+📌 server/state.lua
+  ❓ هل تحتاجه؟
+    - إذا لم تستخدم نظام حالات معقد → يمكن دمجه في players.lua
+    - إذا كنت تتبع lifecycleState بدقة → احتفظ به
+
+  💡 اقتراح:
+    - أضف دوال SetState/GetState مباشرة في players.lua
+
+╔═════════════════════════════════════════════════════════════════════════════════════╗
+║  🔧 تحسينات مقترحة                                                                 ║
+╚═════════════════════════════════════════════════════════════════════════════════════╝
+
+1️⃣ shared/debug.lua - أضف دوال مختصرة:
+```lua
+function COREX.Debug.Error(msg)
+    COREX.Debug.Log(1, msg)
+end
+function COREX.Debug.Warn(msg)
+    COREX.Debug.Log(2, msg)
+end
+function COREX.Debug.Info(msg)
+    COREX.Debug.Log(3, msg)
+end
+function COREX.Debug.Verbose(msg)
+    COREX.Debug.Log(4, msg)
+end
+```
+
+2️⃣ shared/utils.lua - أصلح DeepCopy (يسبب stack overflow مع cyclic tables):
+```lua
+function COREX.Utils.DeepCopy(tbl, seen)
+    if type(tbl) ~= 'table' then return tbl end
+    seen = seen or {}
+    if seen[tbl] then return seen[tbl] end
+
+    local copy = {}
+    seen[tbl] = copy
+
+    for k, v in pairs(tbl) do
+        copy[COREX.Utils.DeepCopy(k, seen)] = COREX.Utils.DeepCopy(v, seen)
+    end
+    return setmetatable(copy, getmetatable(tbl))
+end
+```
+
+3️⃣ server/players.lua - أضف AddMoney / RemoveMoney:
+```lua
+function COREX.Player.AddMoney(source, type, amount)
+    local player = Players[source]
+    if not player then return false end
+
+    player.money[type] = (player.money[type] or 0) + amount
+    player.isDirty = true
+    Player(source).state:set('money', player.money, true)
+    return true
+end
+
+function COREX.Player.RemoveMoney(source, type, amount)
+    local player = Players[source]
+    if not player then return false end
+
+    if player.money[type] < amount then return false end
+
+    player.money[type] = player.money[type] - amount
+    player.isDirty = true
+    Player(source).state:set('money', player.money, true)
+    return true
+end
+```
+
+4️⃣ fxmanifest.lua - تأكد من ترتيب الملفات صحيح:
+  • shared → أولاً
+  • server → ثانياً
+  • client → ثالثاً
+
+
+═══════════════════════════════════════════════════════════════════════════════════════
+
+
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                           📊 خريطة النظام - كيف يعمل كل شيء معاً                  │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+
+🔄 دورة حياة اللاعب:
+
+1. اللاعب يتصل
+   ↓
+2. client/main.lua يتهيئ → ينتظر Network
+   ↓
+3. يرسل حدث corex:player:loaded للـ Server
+   ↓
+4. server/players.lua يستقبل → يستدعي COREX.Player.Load(source)
+   ↓
+5. يفتش في DB → إذا موجود يحمّل، وإلا ينشئ جديد
+   ↓
+6. ينشئ StateBag handlers على Client
+   ↓
+7. يطلق حدث corex:server:playerReady
+   ↓
+8. الأنظمة الأخرى (inventory, spawn) تستقبل الحدث
+   ↓
+9. اللاعب جاهز!
+
+🔄 مزامنة البيانات (StateBag):
+
+[Server] Player(source).state:set('money', {...}, true)
+          ↓ (Auto Sync)
+[Client] AddStateBagChangeHandler('money', ...) → يستقبل التغيير
+          ↓
+[Client] Corex.PlayerData.money = value
+          ↓
+[Client] TriggerEvent('corex:client:moneyChanged', value)
+
+💡 هذا يعني: لا تحتاج TriggerClientEvent يدوياً، StateBag يتعامل مع كل شيء!
+
+
+═══════════════════════════════════════════════════════════════════════════════════════
+
+
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                            🎓 نصائح للمبرمجين الجدد                               │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+
+1️⃣ استخدم exports بدلاً من TriggerEvent للحصول على بيانات:
+   ✅ local player = exports['corex-core']:GetPlayer(source)
+   ❌ TriggerEvent('corex:getPlayer', source)
+
+2️⃣ استخدم StateBag للمزامنة بدلاً من Events:
+   ✅ Player(source).state:set('key', value, true)
+   ❌ TriggerClientEvent('corex:sync', source, key, value)
+
+3️⃣ استخدم Smart Save (isDirty):
+   - عدّل البيانات → player.isDirty = true
+   - النظام يحفظ تلقائياً كل 5 دقائق
+
+4️⃣ استخدم SetBusy لمنع Duping:
+   exports['corex-core']:SetBusy(source, true)
+   -- افعل العملية...
+   exports['corex-core']:SetBusy(source, false)
+
+5️⃣ استخدم Validation دائماً:
+   if not COREX.Validate.IsValidSource(source) then return end
+   if not COREX.Validate.InRange(amount, 0, 1000) then return end
+
+
+═══════════════════════════════════════════════════════════════════════════════════════
+
+
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                             📚 كيف تتعلم من هذا الإطار                            │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+
+📖 خطة التعلم المقترحة:
+
+المرحلة 1️⃣: فهم الأساسيات
+  □ افتح config.lua واقرأ كل إعداد
+  □ افتح shared/utils.lua وافهم كل دالة
+  □ جرّب الدوال في Console:
+    ```lua
+    local copy = COREX.Utils.DeepCopy({a=1, b=2})
+    local uuid = COREX.Utils.GenerateUUID()
+    ```
+
+المرحلة 2️⃣: نظام اللاعبين
+  □ اقرأ server/players.lua من البداية للنهاية
+  □ افهم هيكل البيانات:
+    {source, identifier, name, money, metadata, isBusy, isDirty}
+  □ جرّب:
+    ```lua
+    local player = exports['corex-core']:GetPlayer(source)
+    exports['corex-core']:SetMetaData(source, 'hunger', 50)
+    ```
+
+المرحلة 3️⃣: Client Functions
+  □ اقرأ client/main.lua
+  □ جرّب الدوال:
+    ```lua
+    local Corex = exports['corex-core']:GetCoreObject()
+    Corex.Functions.Notify('مرحباً', 'success')
+    local health = Corex.Functions.GetHealth()
+    ```
+
+المرحلة 4️⃣: نظام التفاعل
+  □ اقرأ client/cl_interact.lua
+  □ أنشئ Object وأضف Target عليه:
+    ```lua
+    local prop = CreateObject(...)
+    exports['corex-core']:AddTarget(prop, {
+        text = "افتح الصندوق",
+        callback = function() print('تم!') end
+    })
+    ```
+
+المرحلة 5️⃣: بناء أول سكربت
+  □ أنشئ سكربت جديد يستخدم corex-core
+  □ اجعله يتفاعل مع اللاعبين والكيانات
+
+
+═══════════════════════════════════════════════════════════════════════════════════════
+
+
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                               🏁 الخلاصة النهائية                                 │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+
+✅ COREX-CORE نظيف ومُحسّن:
+  • لا OOP زائد → جداول بسيطة
+  • StateBag Sync → صفر Network Events
+  • Smart Save → توفير موارد DB
+  • Validation → حماية من الاختراق
+  • Anti-Duping → نظام SetBusy
+
+📌 الملفات الأساسية (لا تحذف):
+  1. server/players.lua  ⭐ (الأهم)
+  2. client/main.lua
+  3. shared/utils.lua
+  4. config.lua
+
+⚠️ يمكن تحسينه:
+  • server/state.lua → دمجه في players.lua
+  • shared/debug.lua → أضف Error/Warn/Info/Verbose
+  • shared/utils.lua → أصلح DeepCopy (cyclic tables)
+  • server/players.lua → أضف AddMoney/RemoveMoney
+
+🎯 الهدف النهائي:
+  إطار قوي، نظيف، وسهل الاستخدام لمئات المبرمجين لبناء ألعاب Zombie Survival.
+
+
+═══════════════════════════════════════════════════════════════════════════════════════
+                              📄 نهاية الدليل الشامل
+═══════════════════════════════════════════════════════════════════════════════════════
+IMPORTANT
+This file contains legacy examples and compatibility notes.
+Use README.md and corex_api.md as the official current reference.
+Only one SQL file is used now: sql/corex_framework.sql

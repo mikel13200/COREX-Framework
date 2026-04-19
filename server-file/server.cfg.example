@@ -1,0 +1,42 @@
+# COREX Framework - Server Config Example
+# Copy this file to `server.cfg` and fill in your real values.
+#
+# Docs:
+#   https://aka.cfx.re/server-commands
+#   https://docs.fivem.net/docs/server-manual/setting-up-a-server/
+
+## Server identity
+sv_hostname "COREX built with FiveM Basic Server!"
+sets sv_projectName "[FiveM Basic Server] COREX"
+sets sv_projectDesc "Recipe for the base resources required to run a minimal FiveM server."
+sets tags "default, deployer"
+sets locale "root-AQ"
+
+## Gameplay
+sv_enforceGameBuild 3258
+sv_maxclients 48
+endpoint_add_tcp "0.0.0.0:30120"
+endpoint_add_udp "0.0.0.0:30120"
+set steam_webApiKey "none"
+set resources_useSystemChat true
+
+## Cfx.re license key — generate yours at https://keymaster.fivem.net/
+sv_licenseKey "CHANGE_ME_CFX_LICENSE_KEY"
+
+## MySQL connection (oxmysql)
+set mysql_connection_string "mysql://USER:PASSWORD@localhost/corex?charset=utf8mb4"
+
+## Resource load order
+ensure [cfx-default]
+ensure [standalone]
+ensure [corex]
+ensure [assets]
+
+## Permissions
+add_ace group.admin command allow
+add_ace group.admin command.quit deny
+add_ace group.admin corex.weather.admin allow
+
+## Admins (replace with your identifiers)
+# add_principal identifier.fivem:XXXXXXX group.admin
+# add_principal identifier.discord:XXXXXXXXXXXXXXXXXX group.admin

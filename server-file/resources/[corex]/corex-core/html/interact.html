@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COREX Interact</title>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            background: transparent !important;
+            background-color: transparent !important;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+
+        #interact-container {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            opacity: 0;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+        }
+
+        #interact-container.visible {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+
+        .interact-box {
+            display: flex;
+            align-items: center;
+            background: rgba(10, 15, 30, 0.75);
+            border: 2px solid rgba(129, 140, 248, 0.7);
+            border-radius: 12px;
+            padding: 10px 18px 10px 10px;
+            box-shadow: 0 0 25px rgba(129, 140, 248, 0.5);
+            gap: 12px;
+        }
+
+        /* The circular 'E' key */
+        .key-ring {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Gradient border effect using pseudo-element or background clip */
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* Animated progress ring (optional, static for now matching ref) */
+        .key-ring::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            border-top-color: #818cf8;
+            /* Indigo-400 */
+            border-right-color: #818cf8;
+            transform: rotate(-45deg);
+        }
+
+        .key-label {
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 14px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+            z-index: 2;
+        }
+
+        .divider {
+            width: 1px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .content {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .icon-box {
+            color: #38bdf8;
+            /* Sky-400 */
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+        }
+
+        .action-text {
+            color: #f1f5f9;
+            /* Slate-100 */
+            font-weight: 500;
+            font-size: 14px;
+            letter-spacing: 0.01em;
+            white-space: nowrap;
+        }
+
+        /* Distance indicator/Pulse effect behind key */
+        .key-pulse {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: #818cf8;
+            opacity: 0;
+            z-index: 0;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(0.95);
+                opacity: 0.3;
+            }
+
+            70% {
+                transform: scale(1.4);
+                opacity: 0;
+            }
+
+            100% {
+                transform: scale(0.95);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="interact-container">
+        <div class="interact-box">
+            <div class="key-ring">
+                <div class="key-pulse"></div>
+                <span class="key-label">E</span>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="content">
+                <div class="icon-box">
+                    <i id="action-icon" class="fas fa-hand-paper"></i>
+                </div>
+                <span class="action-text">Interact</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.addEventListener('message', function (event) {
+            const data = event.data;
+            const container = document.getElementById('interact-container');
+            const textEl = document.querySelector('.action-text');
+            const iconEl = document.getElementById('action-icon');
+
+            if (data.action === 'showInteract' || data.action === 'updateInteract') {
+                let cleanText = data.text || 'Interact';
+                cleanText = cleanText.replace(/\[E\]\s*/gi, '');
+                textEl.textContent = cleanText;
+
+                iconEl.className = 'fas';
+                iconEl.classList.add(data.icon || 'fa-hand-paper');
+
+                if (data.x !== undefined && data.y !== undefined) {
+                    container.style.left = (data.x * 100) + '%';
+                    container.style.top = (data.y * 100) + '%';
+                }
+
+                container.classList.add('visible');
+            } else if (data.action === 'hideInteract') {
+                container.classList.remove('visible');
+            }
+        });
+    </script>
+</body>
+
+</html>

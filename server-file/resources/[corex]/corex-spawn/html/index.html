@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <title>COREX Outfit</title>
+</head>
+
+<body>
+
+    <div class="ui-container" id="ui-container" style="display: none;">
+
+        <div class="hud-overlay">
+            <div class="scan-line"></div>
+            <div class="camera-hints">
+                <span><span class="key">SCROLL</span> ZOOM IN/OUT</span>
+            </div>
+        </div>
+
+        <aside class="clothing-panel">
+
+            <header class="panel-header">
+                <div class="brand">
+                    <img src="https://res.cloudinary.com/dmcz9xz4d/image/upload/v1765759341/Generated_Image_December_15_2025_-_3_37AM_khjswt.png"
+                        alt="COREX" class="brand-logo">
+                    <div class="titles">
+                        <h1>Corex<span class="accent">OUTFIT</span></h1>
+                        <p class="subtitle">CHARACTER CREATION</p>
+                    </div>
+                </div>
+                <div class="gender-switch">
+                    <button class="gender-btn active" data-gender="male">
+                        <i class="material-icons">male</i>
+                    </button>
+                    <button class="gender-btn" data-gender="female">
+                        <i class="material-icons">female</i>
+                    </button>
+                </div>
+            </header>
+
+            <nav class="category-nav">
+                <button class="cat-btn active" data-category="face" title="الوجه | Face"><i
+                        class="material-icons">sentiment_satisfied</i></button>
+                <button class="cat-btn" data-category="mask" title="الماسك | Mask"><i
+                        class="material-icons">theater_comedy</i></button>
+                <button class="cat-btn" data-category="hair" title="الشعر | Hair"><i
+                        class="material-icons">face_retouching_natural</i></button>
+                <button class="cat-btn" data-category="torso" title="القميص | Shirt"><i
+                        class="material-icons">dry_cleaning</i></button>
+                <button class="cat-btn" data-category="legs" title="البنطلون | Pants"><i
+                        class="material-icons">straighten</i></button>
+                <button class="cat-btn" data-category="shoes" title="الحذاء | Shoes"><i
+                        class="material-icons">do_not_step</i></button>
+                <button class="cat-btn" data-category="accessories" title="الإكسسوارات | Accessories"><i
+                        class="material-icons">diamond</i></button>
+            </nav>
+
+            <div class="category-title-bar">
+                <h2 id="category-title">FACE</h2>
+                <div class="item-count" id="item-count">0 ITEMS</div>
+            </div>
+
+            <div class="scroll-content" id="controls-container">
+                <!-- Controls will be dynamically inserted here -->
+            </div>
+
+            <footer class="panel-footer">
+                <div class="rotation-controls">
+                    <button class="rotate-btn" id="rotate-left"><i class="material-icons">rotate_left</i></button>
+                    <span>ROTATE</span>
+                    <button class="rotate-btn" id="rotate-right"><i class="material-icons">rotate_right</i></button>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn btn-cancel" id="btn-cancel">CANCEL</button>
+                    <button class="btn btn-save" id="btn-confirm">CONFIRM</button>
+                </div>
+            </footer>
+
+        </aside>
+
+
+
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

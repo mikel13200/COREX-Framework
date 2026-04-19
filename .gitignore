@@ -1,0 +1,55 @@
+# ============================================
+# COREX Framework - Git Ignore
+# ============================================
+
+# FiveM Server Binary (download from https://runtime.fivem.net/artifacts/fivem/)
+FXServer/
+
+# txAdmin data (contains admin credentials, tokens, and user data)
+txData/
+
+# Server runtime cache
+server-file/cache/
+server-file/server-cache/
+server-file/server-cache-priv/
+
+# Local SQLite DB / replxx history
+server-file/db/
+server-file/.replxx_history
+
+# Sensitive config (use server.cfg.example as template)
+server-file/server.cfg
+server-file/server.cfg.bkp
+
+# System files
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
+*.log
+
+# IDE / Editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*~
+
+# Node
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# AI tooling local state (may contain API tokens)
+.claude/settings.local.json
+.mcp.json
+.gemini/
+.cache/
+gemini-conversation-*.json
+
+# OS / Archive
+*.zip
+*.rar
+*.7z

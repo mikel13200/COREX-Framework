@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fabrication 24/7</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+
+    <div id="crafting-container" class="root hidden">
+        <div class="shell">
+
+            <!-- ═══ MAIN PANEL ═══ -->
+            <section class="main">
+                <header class="m-head">
+                    <div class="m-brand">
+                        <div class="m-icon">
+                            <i class="fa-solid fa-hammer"></i>
+                        </div>
+                        <div class="m-brand-text">
+                            <h1 class="m-title">Fabrication 24/7</h1>
+                            <p class="m-sub">Workbench · <span id="workbench-tier">Tier I</span> · Survival essentials</p>
+                        </div>
+                    </div>
+
+                    <div class="m-cats" id="category-tabs"></div>
+
+                    <button class="m-close" id="close-btn" title="Close [ESC]">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </header>
+
+                <div class="m-toolbar">
+                    <div class="m-search">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="recipe-search" placeholder="Search recipes..." autocomplete="off">
+                    </div>
+                    <div class="m-legend">
+                        <span class="lg lg-ready"><span class="lg-dot"></span>Ready</span>
+                        <span class="lg lg-short"><span class="lg-dot"></span>Short</span>
+                        <span class="lg lg-sealed"><span class="lg-dot"></span>Sealed</span>
+                    </div>
+                </div>
+
+                <div class="m-body">
+                    <div id="recipe-list" class="cards"></div>
+                </div>
+            </section>
+
+            <!-- ═══ SIDEBAR ═══ -->
+            <aside class="sidebar" id="crafting-queue">
+                <header class="sb-head">
+                    <div class="sb-icon">
+                        <i class="fa-solid fa-flask"></i>
+                    </div>
+                    <div class="sb-head-text">
+                        <h2 class="sb-title">Fabrication Queue</h2>
+                        <p class="sb-sub">Selected recipe · Active crafts</p>
+                    </div>
+                </header>
+
+                <div class="sb-body">
+
+                    <!-- Empty state (when no recipe selected) -->
+                    <div id="empty-state" class="sb-empty">
+                        <div class="emp-ill">
+                            <svg viewBox="0 0 64 64" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="10" y="14" width="44" height="36" rx="2"/>
+                                <line x1="10" y1="24" x2="54" y2="24"/>
+                                <circle cx="18" cy="19" r="1.2" fill="currentColor"/>
+                                <circle cx="23" cy="19" r="1.2" fill="currentColor"/>
+                                <line x1="18" y1="34" x2="46" y2="34"/>
+                                <line x1="18" y1="40" x2="38" y2="40"/>
+                            </svg>
+                        </div>
+                        <h3 class="emp-t">No recipe selected</h3>
+                        <p class="emp-d">Select a recipe card to view its materials, specifications, and cycle time.</p>
+                    </div>
+
+                    <!-- Details (when a recipe is selected) -->
+                    <div id="details-content" class="sb-selected hidden">
+
+                        <div class="sel-label">
+                            <span class="sel-label-dot"></span>
+                            Selected Recipe
+                        </div>
+
+                        <div class="sel-preview">
+                            <img id="result-image" src="" alt="">
+                            <div id="result-glow" class="sel-hide"></div>
+                            <div class="sel-prev-grid"></div>
+                        </div>
+
+                        <div class="sel-tags">
+                            <span class="sel-tag">
+                                <i class="fa-solid fa-tag"></i>
+                                <span id="result-category">—</span>
+                            </span>
+                            <span class="sel-tag sel-tag-alt">
+                                <i class="fa-solid fa-gem"></i>
+                                <span id="result-rarity">—</span>
+                            </span>
+                            <span id="result-category-tag" class="sel-hide"></span>
+                            <span id="result-rarity-tag" class="sel-hide"></span>
+                        </div>
+
+                        <h3 id="result-name" class="sel-name">—</h3>
+                        <p id="result-desc" class="sel-desc">—</p>
+
+                        <div class="sel-stats">
+                            <div class="sel-stat">
+                                <i class="fa-regular fa-clock"></i>
+                                <div>
+                                    <span class="ss-k">Cycle</span>
+                                    <span class="ss-v" id="duration-text">—</span>
+                                </div>
+                            </div>
+                            <div class="sel-stat">
+                                <i class="fa-solid fa-bolt"></i>
+                                <div>
+                                    <span class="ss-k">Energy</span>
+                                    <span class="ss-v">4u</span>
+                                </div>
+                            </div>
+                            <div class="sel-stat">
+                                <i class="fa-solid fa-boxes-stacked"></i>
+                                <div>
+                                    <span class="ss-k">Output</span>
+                                    <span class="ss-v">×1</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="sel-mats-head">
+                            <span>Materials Required</span>
+                            <span class="sel-mats-hint">Inventory check</span>
+                        </div>
+                        <div id="materials-grid" class="sel-mats"></div>
+
+                    </div>
+
+                    <!-- Active queue (always visible) -->
+                    <div class="sb-queue">
+                        <div class="q-head">
+                            <div class="q-head-l">
+                                <span class="q-dot"></span>
+                                <span class="q-title">Active Queue</span>
+                            </div>
+                            <span class="q-count"><span id="queue-count">0</span><span class="q-sep">/</span><span id="queue-max">3</span></span>
+                        </div>
+                        <div id="queue-items" class="q-list"></div>
+                    </div>
+
+                </div>
+
+                <div class="sb-foot">
+                    <button id="craft-btn" class="cta disabled">
+                        <span class="cta-body">
+                            <i class="fa-solid fa-play"></i>
+                            <span>Begin Fabrication</span>
+                        </span>
+                        <span class="cta-key"><kbd>↵</kbd></span>
+                    </button>
+                </div>
+            </aside>
+
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

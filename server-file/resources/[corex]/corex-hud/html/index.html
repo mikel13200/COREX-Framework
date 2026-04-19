@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COREX HUD</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="hud-container" class="hud-container hidden">
+        <div class="hud-frame">
+            <div class="hud-content" id="hud-content">
+                <div class="hud-header">
+                    <div class="voice-line"></div>
+                    <div class="voice-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
+                        </svg>
+                    </div>
+                    <span class="player-name" id="player-name">Player</span>
+                    <span class="player-id" id="player-id">#0</span>
+                </div>
+
+                <div class="bars-wrapper">
+                    <div class="bar-row armor-row" id="armor-bar-container">
+                        <div class="bar-fill-wrapper" id="armor-bar-wrapper">
+                            <div class="bar-fill armor-fill"></div>
+                        </div>
+                        <div class="bar-segments-overlay">
+                            <div class="segment-divider"></div>
+                            <div class="segment-divider"></div>
+                            <div class="segment-divider"></div>
+                            <div class="segment-divider"></div>
+                            <div class="segment-divider"></div>
+                            <div class="segment-divider"></div>
+                        </div>
+                    </div>
+
+                    <div class="bar-row health-row" id="health-bar-container">
+                        <div class="bar-fill-wrapper" id="health-bar-wrapper">
+                            <div class="bar-fill health-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="bar-row hunger-row" id="hunger-bar-container">
+                        <div class="bar-icon hunger-icon">
+                            <svg viewBox="0 0 24 24"><path d="M18.06 23h1.66c.84 0 1.53-.65 1.63-1.47L23 7h-5.94l.49-3.65c.09-.68-.2-1.35-.77-1.63C16.13 1.4 15.26 1.14 14.42 1c-.18-.03-.36.04-.46.19C12.6 3.22 11.2 6.93 9.97 7H1v16h5.09c.39 0 .74-.22.91-.57l1.17-2.43H10v3h8.06z"/></svg>
+                        </div>
+                        <div class="bar-fill-wrapper" id="hunger-bar-wrapper">
+                            <div class="bar-fill hunger-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="bar-row thirst-row" id="thirst-bar-container">
+                        <div class="bar-icon thirst-icon">
+                            <svg viewBox="0 0 24 24"><path d="M12 2c-5.33 4.55-8 8.48-8 11.8 0 4.98 3.8 8.2 8 8.2s8-3.22 8-8.2C20 10.48 17.33 6.55 12 2z"/></svg>
+                        </div>
+                        <div class="bar-fill-wrapper" id="thirst-bar-wrapper">
+                            <div class="bar-fill thirst-fill"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="status-row" id="status-row">
+                    <div class="status-icon" data-status="infection" title="Infection">
+                        <svg viewBox="0 0 48 48">
+                            <defs>
+                                <clipPath id="clip-infection" clipPathUnits="userSpaceOnUse">
+                                    <circle cx="24" cy="24" r="22"/>
+                                </clipPath>
+                            </defs>
+                            <g clip-path="url(#clip-infection)">
+                                <circle cx="24" cy="24" r="22" fill="currentColor" opacity="0.14"/>
+                                <rect class="status-fill" x="0" y="48" width="48" height="0" fill="currentColor" opacity="0.55"/>
+                            </g>
+                            <g class="status-detail" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
+                                <circle cx="24" cy="24" r="5"/>
+                                <path d="M24 10 C 21 13 20 16 21 19 C 22 21 23 22 24 22"/>
+                                <path d="M11 31 C 15 29 19 27 21 25 C 22 24 22.5 23 22 22"/>
+                                <path d="M37 31 C 33 29 29 27 27 25 C 26 24 25.5 23 26 22"/>
+                                <circle cx="24" cy="8" r="2" fill="currentColor"/>
+                                <circle cx="10.5" cy="32" r="2" fill="currentColor"/>
+                                <circle cx="37.5" cy="32" r="2" fill="currentColor"/>
+                            </g>
+                        </svg>
+                    </div>
+
+                    <div class="status-icon" data-status="poison" title="Poison">
+                        <svg viewBox="0 0 48 48">
+                            <defs>
+                                <clipPath id="clip-poison" clipPathUnits="userSpaceOnUse">
+                                    <path d="M24 5C15.7 5 9 11.7 9 20c0 4.5 2 8.5 5 11.3v5.7c0 1 .8 2 2 2h1v3c0 .6.4 1 1 1h2c.6 0 1-.4 1-1v-3h2v3c0 .6.4 1 1 1h2c.6 0 1-.4 1-1v-3h2v3c0 .6.4 1 1 1h2c.6 0 1-.4 1-1v-3h1c1.2 0 2-.8 2-2v-5.7c3-2.8 5-6.8 5-11.3 0-8.3-6.7-15-15-15z"/>
+                                </clipPath>
+                            </defs>
+                            <g clip-path="url(#clip-poison)">
+                                <rect width="48" height="48" fill="currentColor" opacity="0.14"/>
+                                <rect class="status-fill" x="0" y="48" width="48" height="0" fill="currentColor" opacity="0.55"/>
+                            </g>
+                            <g class="status-detail" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
+                                <path d="M24 5C15.7 5 9 11.7 9 20c0 4.5 2 8.5 5 11.3v5.7c0 1 .8 2 2 2h1v3c0 .6.4 1 1 1h2c.6 0 1-.4 1-1v-3h2v3c0 .6.4 1 1 1h2c.6 0 1-.4 1-1v-3h2v3c0 .6.4 1 1 1h2c.6 0 1-.4 1-1v-3h1c1.2 0 2-.8 2-2v-5.7c3-2.8 5-6.8 5-11.3 0-8.3-6.7-15-15-15z"/>
+                                <circle cx="18" cy="20" r="3.5" fill="#0a0d12"/>
+                                <circle cx="30" cy="20" r="3.5" fill="#0a0d12"/>
+                                <path d="M22 27 L24 31 L26 27 Z" fill="#0a0d12" stroke="none"/>
+                                <line x1="20" y1="34" x2="20" y2="37"/>
+                                <line x1="24" y1="34" x2="24" y2="37"/>
+                                <line x1="28" y1="34" x2="28" y2="37"/>
+                            </g>
+                        </svg>
+                    </div>
+
+                    <div class="status-icon" data-status="bleeding" title="Bleeding">
+                        <svg viewBox="0 0 48 48">
+                            <defs>
+                                <clipPath id="clip-bleeding" clipPathUnits="userSpaceOnUse">
+                                    <path d="M24 4c-1 0-1.8.5-2.3 1.3L14.5 18C10.4 24 10 28 10 30c0 7.7 6.3 14 14 14s14-6.3 14-14c0-2-.4-6-4.5-12L26.3 5.3C25.8 4.5 25 4 24 4z"/>
+                                </clipPath>
+                            </defs>
+                            <g clip-path="url(#clip-bleeding)">
+                                <rect width="48" height="48" fill="currentColor" opacity="0.14"/>
+                                <rect class="status-fill" x="0" y="48" width="48" height="0" fill="currentColor" opacity="0.55"/>
+                            </g>
+                            <g class="status-detail" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
+                                <path d="M24 4c-1 0-1.8.5-2.3 1.3L14.5 18C10.4 24 10 28 10 30c0 7.7 6.3 14 14 14s14-6.3 14-14c0-2-.4-6-4.5-12L26.3 5.3C25.8 4.5 25 4 24 4z"/>
+                                <path d="M18 28 C 17 31 18 34 20 36" stroke-width="1.6" opacity="0.7"/>
+                                <circle cx="19" cy="31" r="1.2" fill="currentColor" stroke="none"/>
+                            </g>
+                        </svg>
+                    </div>
+
+                    <div class="status-icon" data-status="sick" title="Sick">
+                        <svg viewBox="0 0 48 48">
+                            <defs>
+                                <clipPath id="clip-sick" clipPathUnits="userSpaceOnUse">
+                                    <path d="M28 26V10a4 4 0 00-8 0v16a9 9 0 1012 0z"/>
+                                </clipPath>
+                            </defs>
+                            <g clip-path="url(#clip-sick)">
+                                <rect width="48" height="48" fill="currentColor" opacity="0.14"/>
+                                <rect class="status-fill" x="0" y="48" width="48" height="0" fill="currentColor" opacity="0.55"/>
+                            </g>
+                            <g class="status-detail" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
+                                <path d="M28 26V10a4 4 0 00-8 0v16a9 9 0 1012 0z"/>
+                                <circle cx="24" cy="35" r="3.5" fill="currentColor" stroke="none"/>
+                                <line x1="22" y1="13" x2="24" y2="13"/>
+                                <line x1="22" y1="17" x2="24" y2="17"/>
+                                <line x1="22" y1="21" x2="24" y2="21"/>
+                                <line x1="32" y1="6" x2="34" y2="4" stroke-width="1.5"/>
+                                <line x1="36" y1="8" x2="38" y2="6" stroke-width="1.5"/>
+                                <line x1="35" y1="11" x2="37" y2="11" stroke-width="1.5"/>
+                            </g>
+                        </svg>
+                    </div>
+
+                    <div class="status-icon" data-status="cold" title="Cold">
+                        <svg viewBox="0 0 48 48">
+                            <defs>
+                                <clipPath id="clip-cold" clipPathUnits="userSpaceOnUse">
+                                    <circle cx="24" cy="24" r="22"/>
+                                </clipPath>
+                            </defs>
+                            <g clip-path="url(#clip-cold)">
+                                <circle cx="24" cy="24" r="22" fill="currentColor" opacity="0.08"/>
+                                <rect class="status-fill" x="0" y="48" width="48" height="0" fill="currentColor" opacity="0.5"/>
+                            </g>
+                            <g class="status-detail" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
+                                <line x1="24" y1="6" x2="24" y2="42"/>
+                                <line x1="6" y1="24" x2="42" y2="24"/>
+                                <line x1="11.3" y1="11.3" x2="36.7" y2="36.7"/>
+                                <line x1="36.7" y1="11.3" x2="11.3" y2="36.7"/>
+                                <path d="M24 6 l-3 3 M24 6 l3 3 M24 42 l-3 -3 M24 42 l3 -3"/>
+                                <path d="M6 24 l3 -3 M6 24 l3 3 M42 24 l-3 -3 M42 24 l-3 3"/>
+                                <path d="M11.3 11.3 l0 4 M11.3 11.3 l4 0 M36.7 36.7 l0 -4 M36.7 36.7 l-4 0"/>
+                                <path d="M36.7 11.3 l-4 0 M36.7 11.3 l0 4 M11.3 36.7 l4 0 M11.3 36.7 l0 -4"/>
+                            </g>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+
+</html>
