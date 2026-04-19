@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "mcp__gitbook__list_spaces",
-      "Bash(gh auth *)"
-    ]
-  }
-}

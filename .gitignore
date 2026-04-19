@@ -43,11 +43,20 @@ yarn.lock
 pnpm-lock.yaml
 
 # AI tooling local state (may contain API tokens)
-.claude/settings.local.json
+.claude/
 .mcp.json
 .gemini/
 .cache/
 gemini-conversation-*.json
+
+# Local-only project notes (not shared via repo)
+docs/
+CLAUDE.md
+GEMINI.md
+Task_Blueprint.md
+COREX_Analysis.md
+MCP_INTEGRATION.md
+INSTRUCTIONS.txt
 
 # OS / Archive
 *.zip
