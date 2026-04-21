@@ -2,8 +2,8 @@
 
 > FiveM Zombie-Survival framework — Lua 5.4, oxmysql, StateBag sync.
 
-📖 **Full Documentation:** <https://corex-zombies.gitbook.io/corex-docs>
-💬 **Discord Community:** <https://discord.gg/G95rtnb9sg>
+- 📖 **Full Documentation:** <https://corex-zombies.gitbook.io/corex-docs>
+- 💬 **Discord Community:** <https://discord.gg/G95rtnb9sg>
 
 ## Resources
 `corex-core` • `corex-spawn` • `corex-inventory` • `corex-weather` • `corex-death` • `corex-crafting` • `corex-hud` • `corex-events`
