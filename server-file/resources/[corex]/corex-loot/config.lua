@@ -26,7 +26,7 @@ Config.ContainerTypes = {
     },
     medical = {
         label = 'Medical Supply',
-        model = 'prop_med_bag_01b',
+        model = 'prop_mil_crate_02',
         searchTime = 3000,
         icon = 'fa-kit-medical',
         interactLabel = '[E] Search Cabinet',
@@ -146,59 +146,57 @@ Config.Locations = {
         name = 'Sandy Shores Sheriff',
         type = 'police',
         containers = {
-            { coords = vector3(1853.5, 3687.5, 33.70), heading = 30.0 },
-            { coords = vector3(1856.2, 3690.1, 33.70), heading = 120.0 }
+            { coords = vector3(1853.5, 3687.5, 33.70), heading = 30.0 }
         }
     },
     {
         name = 'Sandy Shores Medical',
         type = 'medical',
         containers = {
-            { coords = vector3(1827.5, 3672.0, 34.27), heading = 210.0 }
+            { coords = vector3(1839.3713, 3672.8123, 34.2768), heading = 210.0886 }
         }
     },
     {
         name = 'Fort Zancudo Armory',
         type = 'military',
         containers = {
-            { coords = vector3(-2359.5, 3253.3, 32.81), heading = 85.0 },
-            { coords = vector3(-2356.0, 3249.7, 32.81), heading = 175.0 },
-            { coords = vector3(-2362.1, 3249.0, 32.81), heading = 0.0 }
+            { coords = vector3(-2359.5, 3253.3, 31.81), heading = 85.0 },
+            { coords = vector3(-2356.8601, 3246.5652, 31.8107), heading = 328.3917 }
         }
     },
     {
         name = 'Route 68 House',
         type = 'house',
         containers = {
-            { coords = vector3(1391.5, 3606.2, 35.02), heading = 200.0 }
+            { coords = vector3(1393.4376, 3603.4702, 33.9809), heading = 197.1876 }
         }
     },
     {
         name = 'Harmony House',
         type = 'house',
         containers = {
-            { coords = vector3(547.2, 2670.8, 42.15), heading = 10.0 }
+            { coords = vector3(547.2, 2670.8, 41.30), heading = 10.0 }
         }
     },
     {
         name = 'Grapeseed Medical',
         type = 'medical',
         containers = {
-            { coords = vector3(1662.5, 4767.3, 42.0), heading = 60.0 }
+            { coords = vector3(1662.5, 4767.3, 41.20), heading = 60.0 }
         }
     },
     {
         name = 'Paleto Sheriff',
         type = 'police',
         containers = {
-            { coords = vector3(-449.2, 6014.5, 31.72), heading = 135.0 }
+            { coords = vector3(-446.5775, 6014.0400, 31.20), heading = 313.1423 }
         }
     },
     {
         name = 'Paleto Medical',
         type = 'medical',
         containers = {
-            { coords = vector3(-247.5, 6331.0, 32.43), heading = 225.0 }
+            { coords = vector3(-247.5, 6331.0, 31.60), heading = 225.0 }
         }
     }
 }

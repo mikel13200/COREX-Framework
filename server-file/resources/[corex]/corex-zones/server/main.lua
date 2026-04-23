@@ -30,21 +30,75 @@ end
 
 local playersInZones = {}
 
+local function DistanceSq(a, b)
+    local dx = a.x - b.x
+    local dy = a.y - b.y
+    local dz = a.z - b.z
+    return dx * dx + dy * dy + dz * dz
+end
+
+local function GetSafeZoneForCoords(coords)
+    if not coords or not Config.SafeZones then return nil end
+
+    for _, zone in ipairs(Config.SafeZones) do
+        if zone.coords and zone.radius then
+            local radius = tonumber(zone.radius) or 0
+            if radius > 0 and DistanceSq(coords, zone.coords) <= (radius * radius) then
+                return zone
+            end
+        end
+    end
+
+    return nil
+end
+
+local function SetPlayerSafeZone(src, zone)
+    local zoneName = zone and zone.name or nil
+    local oldZone = playersInZones[src]
+    if oldZone == zoneName then return end
+
+    if zoneName then
+        playersInZones[src] = zoneName
+        if Config.Debug then
+            print('^2[COREX-ZONES] Server tracked player ' .. src .. ' in zone: ' .. zoneName .. '^0')
+        end
+    else
+        playersInZones[src] = nil
+        if oldZone and Config.Debug then
+            print('^3[COREX-ZONES] Server tracked player ' .. src .. ' outside zone: ' .. oldZone .. '^0')
+        end
+    end
+end
+
+local function RefreshPlayerSafeZone(src)
+    local ped = GetPlayerPed(src)
+    if not ped or ped == 0 then
+        SetPlayerSafeZone(src, nil)
+        return
+    end
+
+    local coords = GetEntityCoords(ped)
+    if not coords or coords.x ~= coords.x or coords.y ~= coords.y or coords.z ~= coords.z then
+        SetPlayerSafeZone(src, nil)
+        return
+    end
+
+    SetPlayerSafeZone(src, GetSafeZoneForCoords(coords))
+end
+
 RegisterNetEvent('corex-zones:server:playerEnteredZone', function(zoneName)
     local src = source
-    playersInZones[src] = zoneName
 
     if Config.Debug then
-        print('^2[COREX-ZONES] Player ' .. src .. ' entered zone: ' .. zoneName .. '^0')
+        print('^5[COREX-ZONES] Ignored client enter report from ' .. src .. ': ' .. tostring(zoneName) .. '^0')
     end
 end)
 
 RegisterNetEvent('corex-zones:server:playerLeftZone', function(zoneName)
     local src = source
-    playersInZones[src] = nil
 
     if Config.Debug then
-        print('^3[COREX-ZONES] Player ' .. src .. ' left zone: ' .. zoneName .. '^0')
+        print('^5[COREX-ZONES] Ignored client leave report from ' .. src .. ': ' .. tostring(zoneName) .. '^0')
     end
 end)
 
@@ -55,8 +109,24 @@ AddEventHandler('playerDropped', function()
     end
 end)
 
+CreateThread(function()
+    local interval = math.max(500, tonumber(Config.CheckInterval) or 500)
+
+    while true do
+        Wait(interval)
+
+        for _, srcStr in ipairs(GetPlayers()) do
+            local src = tonumber(srcStr)
+            if src then
+                RefreshPlayerSafeZone(src)
+            end
+        end
+    end
+end)
+
 AddEventHandler('entityDamaged', function(victim, attacker, weapon, baseDamage)
     if not Config.Protection or not Config.Protection.antiGlitch then return end
+    if not Corex or not Corex.Functions then return end
 
     local victimEntity = victim
     local attackerEntity = attacker
@@ -86,7 +156,11 @@ function GetPlayerZone(src)
 end
 
 function GetPlayersInZones()
-    return playersInZones
+    local copy = {}
+    for src, zoneName in pairs(playersInZones) do
+        copy[src] = zoneName
+    end
+    return copy
 end
 
 exports('IsPlayerInSafeZone', IsPlayerInSafeZone)

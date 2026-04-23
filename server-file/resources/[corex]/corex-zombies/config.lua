@@ -508,6 +508,7 @@ Config.Horde = {
 Config.Fear = {
     -- Master toggle for the red fullscreen fear overlay.
     fearVignetteEnabled = false,
+    renderWaitMs = 0,
 
     -- Screen vignette that intensifies as zombies get close.
     -- Distance maps linearly: vignetteMaxDist → 0 alpha,

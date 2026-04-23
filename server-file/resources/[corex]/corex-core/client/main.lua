@@ -852,13 +852,13 @@ end
 function Corex.Functions.HeadingToCompass(heading)
     heading = heading % 360
     if heading >= 337.5 or heading < 22.5 then return 'N' end
-    if heading < 67.5  then return 'NW' end
-    if heading < 112.5 then return 'W'  end
-    if heading < 157.5 then return 'SW' end
+    if heading < 67.5  then return 'NE' end
+    if heading < 112.5 then return 'E'  end
+    if heading < 157.5 then return 'SE' end
     if heading < 202.5 then return 'S'  end
-    if heading < 247.5 then return 'SE' end
-    if heading < 292.5 then return 'E'  end
-    return 'NE'
+    if heading < 247.5 then return 'SW' end
+    if heading < 292.5 then return 'W'  end
+    return 'NW'
 end
 
 ---Toggle minimap visibility

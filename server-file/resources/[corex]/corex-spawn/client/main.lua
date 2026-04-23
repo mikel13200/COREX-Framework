@@ -117,6 +117,29 @@ local function ScheduleSpawnStateNormalization()
     end)
 end
 
+local function HoldPlayerBehindLoadingScreen()
+    if Corex and Corex.Functions and Corex.Functions.ScreenFadeOut then
+        pcall(Corex.Functions.ScreenFadeOut, 0)
+    else
+        pcall(DoScreenFadeOut, 0)
+    end
+
+    local ped = PlayerPedId()
+    if ped and ped ~= 0 and DoesEntityExist(ped) then
+        SetEntityVisible(ped, false, false)
+        FreezeEntityPosition(ped, true)
+    end
+
+    SetPlayerControl(PlayerId(), false, 0)
+
+    if creationCam then
+        RenderScriptCams(false, true, 0, true, false)
+        DestroyCam(creationCam, false)
+        creationCam = nil
+    end
+    ClearFocus()
+end
+
 local function PlacePlayerAtSpawn(spawn, options)
     options = options or {}
 
@@ -180,6 +203,39 @@ local function PlacePlayerAtSpawn(spawn, options)
     end
 
     NewLoadSceneStop()
+
+    -- CRITICAL: do NOT flip visibility unless collision is actually loaded.
+    -- Revealing the ped in an un-streamed world causes the
+    -- virginia-october-hydrogen crash (GameSkeleton::RunUpdate null deref
+    -- on the first physics tick against null collision). If the initial
+    -- 5-second wait timed out, run a second 3-second fallback window
+    -- that keeps re-requesting collision. If still not loaded, keep the
+    -- ped hidden + frozen and return false — the caller must keep the
+    -- loading screen up and retry.
+    if not collisionLoaded then
+        print('[COREX-SPAWN] ^3Collision not ready after primary wait — entering fallback window^0')
+        for _ = 1, 30 do
+            Wait(100)
+            RequestCollisionAtCoord(spawn.x, spawn.y, spawn.z)
+            if HasCollisionLoadedAroundEntity(ped) then
+                collisionLoaded = true
+                break
+            end
+        end
+    end
+
+    if not collisionLoaded then
+        print('[COREX-SPAWN] ^1Collision still not ready — keeping ped hidden, caller must retry^0')
+        -- Force screen black so the user doesn't see the void.
+        if Corex and Corex.Functions and Corex.Functions.ScreenFadeOut then
+            pcall(Corex.Functions.ScreenFadeOut, 0)
+        else
+            pcall(DoScreenFadeOut, 0)
+        end
+        -- Leave ped hidden + frozen (already done at lines 132-133).
+        return false
+    end
+
     SetEntityVisible(ped, true, false)
     Corex.Functions.FreezeEntity(ped, false)
     return true
@@ -238,18 +294,19 @@ AddEventHandler('onClientResourceStart', function(resourceName)
     print('[COREX-SPAWN] ^3Resource started^0')
 
     CreateThread(function()
+        -- Tell FiveM we'll shut the NUI loading screen down manually.
         if SetManualShutdownLoadingScreenNui then
             pcall(SetManualShutdownLoadingScreenNui, true)
         end
 
         Wait(1500)
 
-        if ShutdownLoadingScreenNui then
-            pcall(ShutdownLoadingScreenNui)
-        end
-        if ShutdownLoadingScreen then
-            pcall(ShutdownLoadingScreen)
-        end
+        -- REMOVED: premature ShutdownLoadingScreenNui / ShutdownLoadingScreen here.
+        -- Closing the loading screen before PlacePlayerAtSpawn verified collision
+        -- exposes the player to an un-streamed world and is the root cause of
+        -- the virginia-october-hydrogen crash at respawn moment. The screen is
+        -- now only closed INSIDE the corex-spawn:client:spawnPlayer handler,
+        -- after HasCollisionLoadedAroundEntity is confirmed true.
 
         if not LocalPlayer.state.isLoggedIn then
             TriggerServerEvent('corex:server:loadPlayer')
@@ -274,30 +331,17 @@ end)
 
 CreateThread(function()
     Wait(20000)
-    if not playerLoaded and not isUIOpen then
-        print('[COREX-SPAWN] ^1EMERGENCY: spawn flow stalled after 20s, forcing recovery^0')
-        if ShutdownLoadingScreenNui then pcall(ShutdownLoadingScreenNui) end
-        if ShutdownLoadingScreen then pcall(ShutdownLoadingScreen) end
+    while not playerLoaded and not isUIOpen do
+        print('[COREX-SPAWN] ^1Spawn flow stalled; keeping player hidden and retrying safely^0')
+        HoldPlayerBehindLoadingScreen()
 
-        local ped = PlayerPedId()
-        if ped and ped ~= 0 then
-            SetEntityVisible(ped, true, false)
-            ResetEntityAlpha(ped)
-            FreezeEntityPosition(ped, false)
-            SetPlayerControl(PlayerId(), true, 0)
-        end
-
-        if creationCam then
-            RenderScriptCams(false, true, 0, true, false)
-            DestroyCam(creationCam, false)
-            creationCam = nil
-        end
-        ClearFocus()
-        DoScreenFadeIn(500)
-
-        if not LocalPlayer.state.isLoggedIn then
+        if LocalPlayer.state.isLoggedIn then
+            TriggerServerEvent('corex-spawn:server:checkPlayer')
+        else
             TriggerServerEvent('corex:server:loadPlayer')
         end
+
+        Wait(5000)
     end
 end)
 
@@ -388,13 +432,26 @@ RegisterNetEvent('corex-spawn:client:spawnPlayer', function(data)
     end
     
     local ped = Corex.Functions.GetPed()
-    PlacePlayerAtSpawn(spawn, {
+    local spawnPlaced = PlacePlayerAtSpawn(spawn, {
         allowGroundSnap = not data.isNew,
         zOffset = data.isNew and 0.03 or 0.0
     })
-    
+
+    -- If collision never loaded, PlacePlayerAtSpawn returns false and keeps
+    -- the ped hidden + frozen behind a black screen. Schedule a retry and
+    -- abort this spawn attempt. The watchdog keeps the player hidden and
+    -- asks the server to retry instead of revealing an un-streamed world.
+    if not spawnPlaced then
+        print('[COREX-SPAWN] ^1Spawn aborted — collision never loaded. Scheduling retry in 2s.^0')
+        CreateThread(function()
+            Wait(2000)
+            TriggerServerEvent('corex:server:loadPlayer')
+        end)
+        return
+    end
+
     Wait(500)
-    
+
     hasSpawned = true
     
     if data.isNew then

@@ -32,6 +32,24 @@ local function GetPlayer(source)
     return nil
 end
 
+local function ForEachLoadedPlayer(players, cb)
+    if type(players) ~= 'table' then return end
+
+    for key, value in pairs(players) do
+        local src = tonumber(key)
+        local player = value
+
+        if type(value) ~= 'table' then
+            src = tonumber(value)
+            player = src and GetPlayer(src) or nil
+        end
+
+        if src and player then
+            cb(src, player)
+        end
+    end
+end
+
 ---Debug logging
 ---@param level string
 ---@param msg string
@@ -304,6 +322,7 @@ RegisterNetEvent('corex-spawn:server:respawnPlayer', function()
     local source = source
     local player = GetPlayer(source)
     if not player then return end
+    if GetSpawnState(source) ~= 'dead' then return end
 
     readyForPositionSave[source] = false
     spawnedPlayers[source] = nil
@@ -433,16 +452,11 @@ AddEventHandler('onResourceStart', function(resourceName)
     end)
     if not ok or not coreObj or not coreObj.Functions then return end
 
-    local players = coreObj.Functions.GetPlayers()
-    for _, playerId in ipairs(players) do
-        local source = tonumber(playerId)
-        local player = GetPlayer(source)
-        if player then
-            CreateThread(function()
-                CheckAndSpawnPlayer(source, player, { isResourceRestart = true })
-            end)
-        end
-    end
+    ForEachLoadedPlayer(coreObj.Functions.GetPlayers(), function(source, player)
+        CreateThread(function()
+            CheckAndSpawnPlayer(source, player, { isResourceRestart = true })
+        end)
+    end)
 end)
 
 -- -------------------------------------------------

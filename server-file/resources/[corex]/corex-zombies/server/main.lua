@@ -35,6 +35,26 @@ local function Dist(a, b)
     return math.sqrt(dx * dx + dy * dy + dz * dz)
 end
 
+local function GetCorePlayerSources()
+    local sources = {}
+    local players = Corex and Corex.Functions and Corex.Functions.GetPlayers and Corex.Functions.GetPlayers() or GetPlayers()
+    if type(players) ~= 'table' then return sources end
+
+    for key, value in pairs(players) do
+        local src = tonumber(key)
+
+        if type(value) ~= 'table' then
+            src = tonumber(value)
+        end
+
+        if src then
+            sources[#sources + 1] = src
+        end
+    end
+
+    return sources
+end
+
 local function BroadcastSharedZone(batch)
     if not batch or not batch.center then
         return
@@ -507,8 +527,8 @@ RegisterCommand('spawnzombie', function(source, args, rawCommand)
     local typeId = args[2]
 
     if source == 0 then
-        for _, playerId in ipairs(Corex.Functions.GetPlayers()) do
-            TriggerClientEvent('corex-zombies:client:forceSpawn', tonumber(playerId), count, typeId)
+        for _, playerId in ipairs(GetCorePlayerSources()) do
+            TriggerClientEvent('corex-zombies:client:forceSpawn', playerId, count, typeId)
         end
         print('^2[COREX-ZOMBIES] Spawning ' .. count .. ' ' .. (typeId or 'random') .. ' zombies^0')
     else

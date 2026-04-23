@@ -2,6 +2,9 @@ local Corex = nil
 local OccupiedZones = {}
 local PlayersInZones = {}
 local lastCrateRequest = {}
+local ScheduleCrateRefill
+local ScheduleBigBoxRefill
+local ZONE_EXIT_BUFFER = 5.0
 
 local function Debug(level, msg)
     if not Config.Debug and level ~= 'Error' then return end
@@ -34,12 +37,27 @@ local function GetZoneById(zoneId)
     return nil
 end
 
+local function IsCoordsInZone(coords, zone, extraRadius)
+    if not coords or not zone or not zone.coords then return false end
+    if type(zone.coords.x) ~= 'number' or type(zone.coords.y) ~= 'number' then return false end
+    if type(zone.radius) ~= 'number' or zone.radius <= 0 then return false end
+
+    local radius = zone.radius + (extraRadius or 0.0)
+    local dx = coords.x - zone.coords.x
+    local dy = coords.y - zone.coords.y
+    return (dx * dx + dy * dy) <= (radius * radius)
+end
+
 local function CrateIdFor(zoneId, crateIndex)
     return ('redzone_%s_crate_%d'):format(zoneId, crateIndex)
 end
 
 local function BigBoxIdFor(zoneId)
     return ('redzone_%s_bigbox'):format(zoneId)
+end
+
+local function NotifyCrateLootState(containerId, hasLoot)
+    TriggerClientEvent('corex-redzones:client:setCrateLootState', -1, containerId, hasLoot == true)
 end
 
 local function RollTier(tiers)
@@ -93,6 +111,8 @@ end
 
 local function RegisterCrate(zoneId, crateIndex)
     local crateId = CrateIdFor(zoneId, crateIndex)
+    local zone = GetZoneById(zoneId)
+    local crateCoords = zone and zone.crates and zone.crates[crateIndex] or nil
 
     pcall(function()
         exports['corex-loot']:UnregisterDynamicContainer(crateId)
@@ -103,20 +123,25 @@ local function RegisterCrate(zoneId, crateIndex)
             label = 'Military Supply Crate',
             onDepleted = function(containerId, src)
                 Debug('Verbose', ('Crate %s depleted by %s — scheduling refill'):format(containerId, tostring(src)))
+                NotifyCrateLootState(containerId, false)
                 ScheduleCrateRefill(zoneId, crateIndex)
-            end
+            end,
+            coords = crateCoords,
+            interactDistance = 3.0
         })
     end)
 
     if not ok then
         Debug('Error', 'Failed to register crate ' .. crateId .. ': ' .. tostring(err))
     else
+        NotifyCrateLootState(crateId, true)
         Debug('Verbose', 'Registered crate ' .. crateId)
     end
 end
 
 local function RegisterBigBox(zoneId)
     local boxId = BigBoxIdFor(zoneId)
+    local zone = GetZoneById(zoneId)
 
     pcall(function()
         exports['corex-loot']:UnregisterDynamicContainer(boxId)
@@ -127,21 +152,25 @@ local function RegisterBigBox(zoneId)
             label = 'Big Loot Box',
             onDepleted = function(containerId, src)
                 Debug('Verbose', ('BigBox %s depleted by %s — scheduling refill'):format(containerId, tostring(src)))
+                NotifyCrateLootState(containerId, false)
                 ScheduleBigBoxRefill(zoneId)
-            end
+            end,
+            coords = zone and zone.bigBox or nil,
+            interactDistance = 3.5
         })
     end)
 
     if not ok then
         Debug('Error', 'Failed to register big box ' .. boxId .. ': ' .. tostring(err))
     else
+        NotifyCrateLootState(boxId, true)
         Debug('Verbose', 'Registered big box ' .. boxId)
     end
 end
 
 local pendingRefills = {}
 
-local function ScheduleCrateRefill(zoneId, crateIndex)
+ScheduleCrateRefill = function(zoneId, crateIndex)
     local crateId = CrateIdFor(zoneId, crateIndex)
     if pendingRefills[crateId] then return end
     local minutes = math.random(Config.RefillMinutes.min, Config.RefillMinutes.max)
@@ -152,7 +181,7 @@ local function ScheduleCrateRefill(zoneId, crateIndex)
     Debug('Info', ('Crate %s will refill in %d minutes'):format(crateId, minutes))
 end
 
-local function ScheduleBigBoxRefill(zoneId)
+ScheduleBigBoxRefill = function(zoneId)
     local boxId = BigBoxIdFor(zoneId)
     if pendingRefills[boxId] then return end
     local minutes = math.random(Config.RefillMinutes.min, Config.RefillMinutes.max)
@@ -170,9 +199,9 @@ CreateThread(function()
         local refilled = 0
         for id, entry in pairs(pendingRefills) do
             if now >= entry.refillAt then
+                pendingRefills[id] = nil
                 entry.fn()
                 Debug('Info', ('Refilled %s'):format(id))
-                pendingRefills[id] = nil
                 refilled = refilled + 1
                 if refilled >= 3 then break end
             end
@@ -203,15 +232,19 @@ local function BuildZoneManifest()
             crates = {}
         }
         for i, coords in ipairs(zone.crates) do
+            local crateId = CrateIdFor(zone.id, i)
             zoneEntry.crates[i] = {
-                crateId = CrateIdFor(zone.id, i),
-                coords = coords
+                crateId = crateId,
+                coords = coords,
+                hasLoot = pendingRefills[crateId] == nil
             }
         end
         if zone.bigBox then
+            local boxId = BigBoxIdFor(zone.id)
             zoneEntry.bigBox = {
-                crateId = BigBoxIdFor(zone.id),
-                coords = zone.bigBox
+                crateId = boxId,
+                coords = zone.bigBox,
+                hasLoot = pendingRefills[boxId] == nil
             }
         end
         manifest[#manifest + 1] = zoneEntry
@@ -284,17 +317,15 @@ local function DetermineZoneForPlayer(src)
     local pc = GetEntityCoords(ped)
     if not pc or pc.x ~= pc.x or pc.y ~= pc.y or pc.z ~= pc.z then return nil end
 
+    local trackedZone = GetZoneById(PlayersInZones[src])
+    if trackedZone and IsCoordsInZone(pc, trackedZone, ZONE_EXIT_BUFFER) then
+        return trackedZone.id
+    end
+
     local zones = (Config and Config.Zones) or {}
     for _, zone in ipairs(zones) do
-        if zone and zone.coords and type(zone.coords.x) == 'number'
-           and type(zone.coords.y) == 'number' and type(zone.coords.z) == 'number'
-           and type(zone.radius) == 'number' and zone.radius > 0 then
-            local dx = pc.x - zone.coords.x
-            local dy = pc.y - zone.coords.y
-            local dz = pc.z - zone.coords.z
-            if (dx * dx + dy * dy + dz * dz) <= (zone.radius * zone.radius) then
-                return zone.id
-            end
+        if IsCoordsInZone(pc, zone, 0.0) then
+            return zone.id
         end
     end
     return nil

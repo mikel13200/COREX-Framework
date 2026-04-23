@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS `inventories` (
 ```
 
 ### 5. Start FXServer
-Double-click `FXServer/run.cmd` → open **<http://localhost:40120/>**
+Double-click `FXServer/FXServer.exe`.
 
 ---
 

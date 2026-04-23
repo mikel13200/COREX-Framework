@@ -172,6 +172,15 @@ RegisterNetEvent('corex-survival:server:useItem', function(itemName)
     local itemConfig = Config.Items[itemName]
     if not itemConfig then return end
 
+    local removeOk, removed = pcall(function()
+        return exports['corex-inventory']:RemoveItem(src, itemName, 1)
+    end)
+
+    if not removeOk or not removed then
+        Corex.Functions.Notify(src, 'You do not have this item', 'error', 2000)
+        return
+    end
+
     if itemConfig.stat == 'hunger' then
         local current = GetStat(src, 'hunger')
         local newVal = math.min(Config.Hunger.maxValue, current + itemConfig.amount)
@@ -215,10 +224,6 @@ RegisterNetEvent('corex-survival:server:useItem', function(itemName)
             Corex.Functions.Notify(src, 'Infection reduced (-' .. itemConfig.reduce .. ')', 'success', 3000)
         end
     end
-
-    pcall(function()
-        exports['corex-inventory']:RemoveItem(src, itemName, 1)
-    end)
 
     if itemConfig.infectionRisk and Config.Infection.enabled then
         local roll = math.random()

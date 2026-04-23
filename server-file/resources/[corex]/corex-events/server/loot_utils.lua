@@ -52,6 +52,8 @@ local function RegisterContainer(eventId, items, label, onDepleted, options)
             label      = label,
             onDepleted = onDepleted,
             consumeOnClose = options.consumeOnClose == true,
+            coords = options.coords or options.location or options.center,
+            interactDistance = options.interactDistance,
         })
     end)
     if not ok then

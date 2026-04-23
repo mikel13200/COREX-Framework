@@ -182,16 +182,32 @@ local function applyRuntimeMinimapLayout()
 end
 
 CreateThread(function()
+    -- Gate scaleform request on session + player readiness. Requesting
+    -- scaleform before the session is up leaves a half-initialized movie
+    -- handle that the HUD subsystem dereferences on its next RunUpdate
+    -- tick — one of the known triggers of the virginia-october-hydrogen
+    -- crash (GameSkeleton null deref on first post-spawn frame).
+    while not NetworkIsSessionStarted() do Wait(100) end
+    while not NetworkIsPlayerActive(PlayerId()) do Wait(100) end
+    while not DoesEntityExist(PlayerPedId()) do Wait(100) end
+
     if Config.HideMinimapHealthArmor then
         minimapScaleform = RequestScaleformMovie('minimap')
 
+        -- Wait(50) instead of Wait(0) — scaleform loads on a background
+        -- thread; tight polling just burns frames during spawn.
+        local t = GetGameTimer()
         while not HasScaleformMovieLoaded(minimapScaleform) do
-            Wait(0)
+            Wait(50)
+            if GetGameTimer() - t > 5000 then
+                print('[COREX-HUD] ^3scaleform load timeout — bailing^0')
+                minimapScaleform = nil
+                break
+            end
         end
 
-        SetBigmapActive(true, false)
-        Wait(0)
-        SetBigmapActive(false, false)
+        -- Removed the bigmap double-toggle; the main loop (line ~213)
+        -- already handles minimap layout correctly.
     end
 
     local componentCount = #hudComponents
@@ -452,42 +468,48 @@ RegisterCommand('mappos', function(_, args)
         x, y, Config.Minimap.w, Config.Minimap.h, ax, ay))
 end, false)
 
-RegisterCommand('setstatus', function(_, args)
-    local key = args[1]
-    local value = tonumber(args[2]) or 0
-    if not key then
-        print('^3[HUD]^7 Usage: /setstatus <infection|poison|bleeding|sick|cold> <0-100>')
-        return
-    end
-    local serverId = GetPlayerServerId(PlayerId())
-    local playerBag = ('player:%s'):format(serverId)
-    Player(serverId).state:set(key, math.max(0, math.min(100, value)), true)
-    print(('^2[HUD]^7 Status %s = %d'):format(key, value))
-end, false)
+-- [SECURITY] Dev-only commands below are gated behind Config.Debug.
+-- In production (Config.Debug = false) these commands are NOT registered,
+-- so players cannot use /heal, /sethealth, /setarmor, /setstatus to cheat.
+-- To enable for testing, set Config.Debug = true in corex-hud/config.lua.
+if Config and Config.Debug then
+    RegisterCommand('setstatus', function(_, args)
+        local key = args[1]
+        local value = tonumber(args[2]) or 0
+        if not key then
+            print('^3[HUD]^7 Usage: /setstatus <infection|poison|bleeding|sick|cold> <0-100>')
+            return
+        end
+        local serverId = GetPlayerServerId(PlayerId())
+        local playerBag = ('player:%s'):format(serverId)
+        Player(serverId).state:set(key, math.max(0, math.min(100, value)), true)
+        print(('^2[HUD]^7 Status %s = %d'):format(key, value))
+    end, false)
 
-RegisterCommand("sethealth", function(_, args)
-    local amount = tonumber(args[1]) or 100
-    Corex.Functions.SetHealth(amount + 100)
-end, false)
+    RegisterCommand("sethealth", function(_, args)
+        local amount = tonumber(args[1]) or 100
+        Corex.Functions.SetHealth(amount + 100)
+    end, false)
 
-RegisterCommand("setarmor", function(_, args)
-    local amount = tonumber(args[1]) or 100
-    Corex.Functions.SetArmour(amount)
-end, false)
+    RegisterCommand("setarmor", function(_, args)
+        local amount = tonumber(args[1]) or 100
+        Corex.Functions.SetArmour(amount)
+    end, false)
 
-RegisterCommand("heal", function()
-    Corex.Functions.SetHealth(200)
-    Corex.Functions.SetArmour(100)
-end, false)
+    RegisterCommand("heal", function()
+        Corex.Functions.SetHealth(200)
+        Corex.Functions.SetArmour(100)
+    end, false)
 
-RegisterCommand("debughud", function()
-    print(('^2[HUD DEBUG]^7 HP:%d AR:%d HU:%d TH:%d'):format(
-        lastHealth, lastArmor, lastHunger, lastThirst
-    ))
-    for _, key in ipairs(STATUS_KEYS) do
-        print(('^2[HUD DEBUG]^7 %s=%d'):format(key, lastStatus[key]))
-    end
-end, false)
+    RegisterCommand("debughud", function()
+        print(('^2[HUD DEBUG]^7 HP:%d AR:%d HU:%d TH:%d'):format(
+            lastHealth, lastArmor, lastHunger, lastThirst
+        ))
+        for _, key in ipairs(STATUS_KEYS) do
+            print(('^2[HUD DEBUG]^7 %s=%d'):format(key, lastStatus[key]))
+        end
+    end, false)
+end
 
 RegisterKeyMapping('togglehud', 'Toggle HUD', 'keyboard', 'F7')
 RegisterKeyMapping('toggle3d', 'Toggle HUD 3D mode', 'keyboard', '')

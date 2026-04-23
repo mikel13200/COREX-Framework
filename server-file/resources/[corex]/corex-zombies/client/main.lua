@@ -70,6 +70,8 @@ local isCoughing = false
 local lastCoughTime = 0
 local lastToxicTick = 0
 local currentToxicExposure = 0.0
+local renderedToxicExposure = 0.0
+local lastToxicRenderTick = nil
 
 local function DLog(msg)
     if Config.Debug then
@@ -623,6 +625,20 @@ local function PickAttackAnim(typeData)
 end
 
 local function SpawnZombie(forcedCoords, forcedType, spawnOptions)
+    -- Defense-in-depth guard: never spawn a zombie until the game session
+    -- AND the local player are fully ready. Prevents race-condition spawns
+    -- during the critical window where the virginia-october-hydrogen crash
+    -- can fire. This also makes the synchronous relationship-group init at
+    -- the top of the file safe — if a zombie is somehow requested before
+    -- the hash is populated, we bail cleanly.
+    if not ZOMBIE_RELATIONSHIP_HASH then return nil end
+    if not NetworkIsSessionStarted() then return nil end
+    if not NetworkIsPlayerActive(PlayerId()) then return nil end
+    local _playerPed = PlayerPedId()
+    if not _playerPed or _playerPed == 0 or not DoesEntityExist(_playerPed) then
+        return nil
+    end
+
     spawnOptions = spawnOptions or {}
     local coords = forcedCoords
     if not coords and ZX.Spawn and ZX.Spawn.GetNextSpawnPosition then
@@ -1380,10 +1396,23 @@ local function PlayCoughAnim(playerPed)
 end
 
 local function DrawToxicVignette()
-    if currentToxicExposure <= 0 then return end
+    if currentToxicExposure <= 0 and renderedToxicExposure <= 0.01 then return end
     local fade = Config.ToxicEffect.screenFadeColor
     if not fade then return end
-    local alpha = math.floor((fade.a or 40) * math.min(currentToxicExposure, 1.0))
+
+    local now = GetGameTimer()
+    local dt = lastToxicRenderTick and (now - lastToxicRenderTick) or 16
+    lastToxicRenderTick = now
+
+    local blend = math.min(1.0, math.max(0.0, dt / 250.0))
+    renderedToxicExposure = renderedToxicExposure + ((currentToxicExposure or 0.0) - renderedToxicExposure) * blend
+
+    if currentToxicExposure <= 0 and renderedToxicExposure <= 0.01 then
+        renderedToxicExposure = 0.0
+        return
+    end
+
+    local alpha = math.floor((fade.a or 40) * math.min(renderedToxicExposure, 1.0))
     DrawRect(0.5, 0.5, 2.0, 2.0, fade.r, fade.g, fade.b, alpha)
 end
 
@@ -1430,57 +1459,80 @@ end
 -- Relationship group is set synchronously at module load above.
 -- This thread just pre-warms common anim/clipset/ptfx assets.
 CreateThread(function()
+    -- Wait for Corex core AND the network session AND player login before
+    -- starting the asset pre-warm. `isReady` flips when GetCoreObject() succeeds,
+    -- which can happen long before the player is actually spawned. Flooding
+    -- the streaming pool with Request* calls during the spawn window is a
+    -- contributor to the virginia-october-hydrogen crash.
     while not isReady do Wait(500) end
+    while not NetworkIsSessionStarted() do Wait(500) end
+    while not LocalPlayer.state.isLoggedIn do Wait(500) end
+    -- Additional buffer so PlacePlayerAtSpawn gets uncontested streaming
+    -- bandwidth for the critical collision load.
+    Wait(3000)
 
     DLog('Pre-warming assets...')
 
+    -- Wait(0) between every Request* call — lets the streaming scheduler
+    -- process each request in its own frame instead of firing dozens in one
+    -- frame and stalling the pool.
     for _, typeDef in ipairs(Config.ZombieTypes or {}) do
         local animSet = Config.Animations[typeDef.id]
         if animSet then
             if animSet.moveClipset then
                 RequestClipsetSafe(animSet.moveClipset)
+                Wait(0)
             end
             if animSet.attackDict then
                 RequestAnimDictSafe(animSet.attackDict)
+                Wait(0)
             end
             local pool = animSet.attackAnims
             if type(pool) == 'table' then
                 for _, entry in ipairs(pool) do
                     if type(entry) == 'table' and entry.dict then
                         RequestAnimDictSafe(entry.dict)
+                        Wait(0)
                     end
                 end
             end
         end
         if typeDef.ptfx then
             RequestPtfxDictSafe(typeDef.ptfx.dict)
+            Wait(0)
         end
         if typeDef.attackPtfx then
             RequestPtfxDictSafe(typeDef.attackPtfx.dict)
+            Wait(0)
         end
     end
 
     for _, fbCs in ipairs(Config.FallbackClipsets or {}) do
         RequestClipsetSafe(fbCs)
+        Wait(0)
     end
 
     if Config.FallbackAttackDict then
         RequestAnimDictSafe(Config.FallbackAttackDict)
+        Wait(0)
     end
 
     if Config.ZombieMovement and Config.ZombieMovement.primary then
         for _, cs in pairs(Config.ZombieMovement.primary) do
             RequestClipsetSafe(cs)
+            Wait(0)
         end
     end
 
     if Config.ZombieSpawn and Config.ZombieSpawn.dict then
         RequestAnimDictSafe(Config.ZombieSpawn.dict)
+        Wait(0)
     end
 
     if Config.ZombieIdle then
         for _, idle in ipairs(Config.ZombieIdle) do
             RequestAnimDictSafe(idle.dict)
+            Wait(0)
         end
     end
 
@@ -1488,7 +1540,14 @@ CreateThread(function()
 end)
 
 CreateThread(function()
+    -- Gate the spawn loop on full player readiness. `isReady` alone is not
+    -- enough — it only confirms corex-core is available, not that the player
+    -- ped is loaded. Spawning zombies before player is in the world can
+    -- contribute to the spawn-time crash chain.
     while not isReady do Wait(500) end
+    while not NetworkIsSessionStarted() do Wait(500) end
+    while not LocalPlayer.state.isLoggedIn do Wait(500) end
+    Wait(5000)  -- buffer after spawn before first zombie wave
 
     while true do
         Wait(Config.Spawning.spawnInterval or 5000)
@@ -1695,7 +1754,7 @@ CreateThread(function()
     while true do
         -- Tight Wait(0) only when there is actually per-frame work
         -- (grab UI/input or toxic vignette). Otherwise sleep long.
-        if isGrabbed or currentToxicExposure > 0 then
+        if isGrabbed or currentToxicExposure > 0 or renderedToxicExposure > 0.01 then
             Wait(0)
         else
             Wait(250)
@@ -1720,7 +1779,7 @@ CreateThread(function()
             end
         end
 
-        if currentToxicExposure > 0 then
+        if currentToxicExposure > 0 or renderedToxicExposure > 0.01 then
             DrawToxicVignette()
         end
     end

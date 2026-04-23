@@ -83,9 +83,14 @@ exports('ShowNotify', ShowNotify)
 exports('Dismiss', DismissNotify)
 exports('ClearAll', ClearAllNotifies)
 
-RegisterCommand('testnotify', function(_, args)
-    local ntype = args[1] or 'info'
-    local title = args[2]
-    local message = args[3] or ('Test notification type=' .. ntype)
-    ShowNotify({ type = ntype, title = title, message = message })
-end, false)
+-- [SECURITY] /testnotify gated behind Config.Debug. In production
+-- (Config.Debug = false) this command is not registered, preventing
+-- players from spamming test notifications.
+if Config and Config.Debug then
+    RegisterCommand('testnotify', function(_, args)
+        local ntype = args[1] or 'info'
+        local title = args[2]
+        local message = args[3] or ('Test notification type=' .. ntype)
+        ShowNotify({ type = ntype, title = title, message = message })
+    end, false)
+end

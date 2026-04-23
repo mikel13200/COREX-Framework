@@ -67,13 +67,13 @@ end
 local function GetItemRarity(itemName)
     local itemDef = Items[itemName]
     if itemDef then return itemDef.rarity or 'common' end
-    
+
     local weaponDef = Weapons[itemName] or Weapons[string.upper(itemName)]
     if weaponDef then return weaponDef.rarity or 'common' end
-    
+
     local ammoDef = Ammo[itemName]
     if ammoDef then return ammoDef.rarity or 'common' end
-    
+
     return 'common'
 end
 
@@ -150,13 +150,13 @@ local function SpawnDropProp(dropId, itemData)
         networked = false,
         freeze = true
     })
-    
+
     if prop then
         spawnedProps[dropId] = prop
-        
+
         local rarity = GetItemRarity(itemData.name)
         local color = GetRarityColor(rarity)
-        
+
         propVisualData[dropId] = {
             prop = prop,
             rarity = rarity,
@@ -416,7 +416,7 @@ RegisterNetEvent('corex-inventory:client:useItem', function(itemName, itemData)
         TriggerEvent('corex-inventory:internal:addAmmo', itemName, itemData or {})
         return
     end
-    
+
     -- Item effects handled by corex-survival
 end)
 
@@ -548,23 +548,23 @@ local markerAnimPhase = 0
 
 CreateThread(function()
     if not Config.EnableMarkers then return end
-    
+
     -- Wait for Corex to be ready
     while not isReady or not Corex or not Corex.Functions do
         Wait(500)
     end
-    
+
     local floor = math.floor
     local sin = math.sin
     local GetEntityCoords = GetEntityCoords
     local DoesEntityExist = DoesEntityExist
     local DrawMarker = DrawMarker
-    
+
     -- Cached values updated less frequently
     local cachedPlayerX, cachedPlayerY, cachedPlayerZ = 0, 0, 0
     local lastCacheUpdate = 0
     local CACHE_INTERVAL = Config.MarkerCacheInterval or 100
-    
+
     while true do
         -- Quick check: any props at all?
         local hasProps = false
@@ -572,12 +572,12 @@ CreateThread(function()
             hasProps = true
             break
         end
-        
+
         if not hasProps then
             Wait(1000) -- Sleep long when no dropped items
             goto continue
         end
-        
+
         -- Update cached player position periodically (not every frame)
         local now = GetGameTimer()
         if now - lastCacheUpdate > CACHE_INTERVAL then
@@ -587,41 +587,41 @@ CreateThread(function()
             end
             lastCacheUpdate = now
         end
-        
+
         local hasAnyMarker = false
-        
+
         -- Update animation phase
         markerAnimPhase = (markerAnimPhase + 0.03)
         if markerAnimPhase > 6.28 then markerAnimPhase = 0 end
-        
+
         -- Draw markers
         for dropId, data in pairs(propVisualData) do
             local prop = data.prop
-            
+
             if prop and DoesEntityExist(prop) then
                 local c = data.propCoords
                 local dx, dy = c.x - cachedPlayerX, c.y - cachedPlayerY
                 local distSq = dx*dx + dy*dy -- 2D distance is faster
-                
+
                 if distSq < (Config.MarkerRadius * Config.MarkerRadius) then
                     hasAnyMarker = true
                     local isClose = distSq < (Config.MarkerCloseRange * Config.MarkerCloseRange)
                     local color = data.color or {r=255, g=100, b=100}
                     local rarity = data.rarity
-                    
+
                     local alpha = isClose and 200 or 150
                     local scale = isClose and 0.5 or 0.35
-                    
+
                     if rarity == 'legendary' or rarity == 'mythic' then
                         alpha = alpha + floor(20 * (sin(markerAnimPhase) + 1) * 0.5)
                     end
-                    
+
                     DrawMarker(25, c.x, c.y, c.z + 0.05,
                         0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                         scale, scale, 0.1,
                         color.r, color.g, color.b, alpha,
                         false, false, 0, false, nil, nil, false)
-                    
+
                     if isClose and (rarity == 'rare' or rarity == 'epic' or rarity == 'legendary' or rarity == 'mythic') then
                         DrawMarker(0, c.x, c.y, c.z - 0.5,
                             0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
@@ -632,13 +632,13 @@ CreateThread(function()
                 end
             end
         end
-        
+
         if hasAnyMarker then
             Wait(0) -- Required for smooth markers
         else
             Wait(500) -- No nearby markers
         end
-        
+
         ::continue::
     end
 end)
@@ -646,32 +646,31 @@ end)
 -- Prop sync thread (runs much less frequently)
 CreateThread(function()
     while not isReady do Wait(1000) end
-    
+
     while true do
         Wait(Config.PropSyncInterval or 10000)
         SyncAllProps()
     end
 end)
 
-RegisterCommand('giveitem', function(source, args)
-    local item = args[1]
-    local count = tonumber(args[2]) or 1
-    if item then
-        TriggerServerEvent('corex-inventory:server:giveitem', item, count)
-    end
-end, true)
+-- [SECURITY] Client /giveitem removed. The server NetEvent it fed into
+-- was exploitable (CRIT-01). Admins should use the server-side /giveitem
+-- which is properly ACE-gated (command.giveitem permission required).
+-- /cleanprops is a dev helper - gated behind Config.Debug below.
 
 AddEventHandler('onResourceStop', function(resourceName)
     if GetCurrentResourceName() ~= resourceName then return end
     DeleteAllProps()
 end)
 
-RegisterCommand('cleanprops', function()
-    DeleteAllProps()
-    droppedItems = {}
-    TriggerServerEvent('corex-inventory:server:requestDroppedItems')
-    DebugPrint('[INVENTORY] All props cleaned and resynced')
-end, true)
+if Config and Config.Debug then
+    RegisterCommand('cleanprops', function()
+        DeleteAllProps()
+        droppedItems = {}
+        TriggerServerEvent('corex-inventory:server:requestDroppedItems')
+        DebugPrint('[INVENTORY] All props cleaned and resynced')
+    end, false)
+end
 
 local playerInventory = {}
 
@@ -720,17 +719,17 @@ end)
 local function UseQuickSlot(slotNum)
     if isOpen then return end
     if slotNum < 1 or slotNum > 6 then return end
-    
+
     local coveredSlots = {}
     local anchorSlots = {}
-    
+
     for _, item in ipairs(playerInventory) do
         local itemDef = Items[item.name] or Weapons[item.name] or { size = { w = 1, h = 1 } }
         local w = itemDef.size and itemDef.size.w or 1
         local h = itemDef.size and itemDef.size.h or 1
         local anchorKey = item.x .. ',' .. item.y
         anchorSlots[anchorKey] = item
-        
+
         for row = item.y, item.y + h - 1 do
             for col = item.x, item.x + w - 1 do
                 local key = col .. ',' .. row
@@ -740,18 +739,18 @@ local function UseQuickSlot(slotNum)
             end
         end
     end
-    
+
     local currentHotkey = 1
     local hotkeyMapping = {}
     local gridCols = Config.GridWidth or 8
     local gridRows = Config.GridHeight or 10
-    
+
     for row = 1, gridRows do
         if currentHotkey > 6 then break end
         for col = 1, gridCols do
             if currentHotkey > 6 then break end
             local key = col .. ',' .. row
-            
+
             if coveredSlots[key] then
             elseif anchorSlots[key] then
                 hotkeyMapping[currentHotkey] = { x = col, y = row, item = anchorSlots[key] }
@@ -762,7 +761,7 @@ local function UseQuickSlot(slotNum)
             end
         end
     end
-    
+
     local mapping = hotkeyMapping[slotNum]
     if mapping and mapping.item then
         TriggerEvent('corex-inventory:client:useItem', mapping.item.name, mapping.item)

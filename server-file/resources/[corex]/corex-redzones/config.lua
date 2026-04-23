@@ -4,6 +4,11 @@ Config.Debug = false
 Config.CheckInterval = 500
 Config.CrateModel = 'prop_mil_crate_01'
 Config.CrateInteractDistance = 2.5
+Config.FlareDrawDistance = 220.0
+Config.FlareRestartInterval = 2500
+Config.CrateGroundSnapDistance = 350.0
+Config.CrateGroundResnapMs = 2000
+Config.ZoneExitGraceMs = 2500
 
 Config.RefillMinutes = { min = 30, max = 60 }
 
@@ -191,12 +196,12 @@ Config.Zones = {
         coords = vector3(-2300.0, 3400.0, 32.0),
         radius = 150.0,
         crates = {
-            vector3(-2285.6, 3385.1, 32.81),
+            vector3(-2285.6199, 3388.6633, 31.3731),
             vector3(-2318.4, 3409.7, 32.81),
             vector3(-2267.0, 3420.3, 32.81),
             vector3(-2302.5, 3368.8, 32.81)
         },
-        bigBox = vector3(-2300.0, 3395.0, 32.81)
+        bigBox = vector3(-2307.5242, 3404.3391, 31.0282)
     },
     {
         id = 'humane_labs',
@@ -204,11 +209,11 @@ Config.Zones = {
         coords = vector3(3600.0, 3700.0, 30.0),
         radius = 150.0,
         crates = {
-            vector3(3612.8, 3706.5, 30.0),
-            vector3(3584.2, 3689.1, 30.1),
-            vector3(3620.5, 3680.9, 30.0)
+            vector3(3637.0720, 3764.8162, 28.5157),
+            vector3(3578.1277, 3690.5129, 25.1218),
+            vector3(3527.6711, 3728.3928, 36.4466)
         },
-        bigBox = vector3(3605.0, 3695.0, 30.0)
+        bigBox = vector3(3568.1240, 3701.0618, 25.1215)
     },
     {
         id = 'chiliad_peak',
@@ -217,10 +222,10 @@ Config.Zones = {
         radius = 120.0,
         crates = {
             vector3(455.2, 5566.8, 781.2),
-            vector3(440.1, 5580.4, 780.5),
-            vector3(462.7, 5558.2, 780.8)
+            vector3(426.3995, 5572.2480, 775.4991),
+            vector3(465.6991, 5551.7109, 783.5720)
         },
-        bigBox = vector3(452.0, 5568.0, 781.0)
+        bigBox = vector3(500.0385, 5595.1274, 795.6479)
     },
     {
         id = 'smuggler_port',

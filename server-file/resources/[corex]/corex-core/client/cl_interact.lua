@@ -1,6 +1,7 @@
 local activeTargets = {}
 local closestTarget = nil
 local isInteractUIVisible = false
+local INTERACT_EXIT_BUFFER = 0.45
 
 COREX = COREX or {}
 Corex = Corex or COREX
@@ -107,7 +108,12 @@ function GetClosestTarget()
             if dx * dx + dy * dy <= maxD * maxD then
                 local dz = pz - entityCoords.z
                 local distSq = dx * dx + dy * dy + dz * dz
-                local tdSq = target.distance * target.distance
+                local activeDistance = target.distance
+                if closestTarget and closestTarget.entityId == entityId then
+                    activeDistance = activeDistance + INTERACT_EXIT_BUFFER
+                end
+
+                local tdSq = activeDistance * activeDistance
                 if distSq <= tdSq and distSq < closestDistSq then
                     closestDistSq = distSq
                     closest = target
@@ -152,8 +158,6 @@ CreateThread(function()
                 HideInteractUI()
             end
 
-            -- Don't need per-frame updates for a prompt; 50ms keeps UI smooth
-            -- without scanning every target every tick.
             Wait(50)
         else
             if closestTarget then

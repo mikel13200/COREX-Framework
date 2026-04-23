@@ -21,7 +21,9 @@ CreateThread(function()
         end
 
         local isFading = currentAlpha ~= targetAlpha
-        Wait(isFading and 0 or 33)
+        local bannerVisible = bannerText and (bannerPersistent or GetGameTimer() < bannerVisibleUntil)
+        local overlayVisible = currentAlpha > 0 or targetAlpha > 0
+        Wait((isFading or bannerVisible or overlayVisible) and 0 or 250)
         local now = GetGameTimer()
         local dt = (now - lastTick) / 1000.0
         lastTick = now
@@ -82,8 +84,14 @@ local function RunAudioLoop()
 end
 
 function RedZoneEffects.Enter(zoneName)
+    local text = 'ENTERED RED ZONE - survival not guaranteed'
+    if bannerPersistent and bannerText == text and targetAlpha == Config.Vignette.alpha then
+        RunAudioLoop()
+        return
+    end
+
     targetAlpha = Config.Vignette.alpha
-    bannerText = 'ENTERED RED ZONE — survival not guaranteed'
+    bannerText = text
     bannerPersistent = true
     RunAudioLoop()
 end

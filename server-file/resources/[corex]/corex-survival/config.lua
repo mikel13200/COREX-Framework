@@ -50,7 +50,6 @@ Config.Items = {
     ['dirty_water']  = { stat = 'thirst',    amount = 20,  infectionRisk = 0.10 },
     ['energy_drink'] = { stat = 'thirst',    amount = 25 },
     ['bread']        = { stat = 'hunger',    amount = 20 },
-    ['water']        = { stat = 'thirst',    amount = 25 },
     ['antidote']     = { stat = 'infection', cure = true },
     ['painkillers']  = { stat = 'infection', pause = 300000 },
     ['antibiotics']  = { stat = 'infection', reduce = 25 },

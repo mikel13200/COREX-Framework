@@ -52,6 +52,46 @@ local function GenerateContainerId(locIndex, containerIndex)
     return ('loc_%d_c_%d'):format(locIndex, containerIndex)
 end
 
+local function ToVec3(value)
+    if not value or value.x == nil or value.y == nil or value.z == nil then
+        return nil
+    end
+
+    local x, y, z = tonumber(value.x), tonumber(value.y), tonumber(value.z)
+    if not x or not y or not z then return nil end
+    return vector3(x, y, z)
+end
+
+local function GetContainerCoords(state)
+    if not state then return nil end
+    if state.coords then return ToVec3(state.coords) end
+
+    if state.locIndex and state.containerIndex then
+        local location = Config.Locations[state.locIndex]
+        local container = location and location.containers and location.containers[state.containerIndex]
+        return container and ToVec3(container.coords) or nil
+    end
+
+    return nil
+end
+
+local function IsPlayerNearContainer(src, state)
+    local coords = GetContainerCoords(state)
+    if not coords then return false end
+
+    local ped = GetPlayerPed(src)
+    if not ped or ped == 0 then return false end
+
+    local playerCoords = GetEntityCoords(ped)
+    if not playerCoords then return false end
+
+    local typeData = Config.ContainerTypes[state.type] or {}
+    local baseDistance = tonumber(state.interactDistance) or tonumber(typeData.interactDistance) or 2.0
+    local maxDistance = baseDistance + 2.0
+
+    return #(playerCoords - coords) <= maxDistance
+end
+
 local function RollLootTable(containerType)
     local table = Config.LootTables[containerType]
     if not table or #table == 0 then return nil end
@@ -119,7 +159,7 @@ local function InitializeContainers()
             goto continue
         end
 
-        for containerIndex, _ in ipairs(location.containers) do
+        for containerIndex, container in ipairs(location.containers) do
             local containerId = GenerateContainerId(locIndex, containerIndex)
             ContainerStates[containerId] = {
                 items = GenerateLoot(containerType),
@@ -129,6 +169,8 @@ local function InitializeContainers()
                 type = containerType,
                 locIndex = locIndex,
                 containerIndex = containerIndex,
+                coords = container.coords,
+                interactDistance = Config.ContainerTypes[containerType].interactDistance,
                 searchedBy = nil
             }
             total = total + 1
@@ -285,6 +327,12 @@ RegisterNetEvent('corex-loot:server:requestContainer', function(containerId)
         return
     end
 
+    if not IsPlayerNearContainer(src, state) then
+        Debug('Warn', ('Open rejected: player %d too far from %s'):format(src, containerId))
+        TriggerClientEvent('corex-loot:client:searchFailed', src, 'Too far away')
+        return
+    end
+
     if not IsContainerAvailable(containerId) then
         Debug('Verbose', 'Container not available: ' .. containerId)
         TriggerClientEvent('corex-loot:client:searchFailed', src, 'This container has already been looted')
@@ -321,6 +369,14 @@ RegisterNetEvent('corex-loot:server:takeItem', function(containerId, itemIndex)
     local state = ContainerStates[containerId]
     if not state then
         Debug('Warn', 'TakeItem: Container not found: ' .. tostring(containerId))
+        return
+    end
+
+    if not IsPlayerNearContainer(src, state) then
+        Debug('Warn', ('TakeItem rejected: player %d too far from %s'):format(src, containerId))
+        if state.searchedBy == src then state.searchedBy = nil end
+        PlayerSearching[src] = nil
+        TriggerClientEvent('corex-loot:client:takeResult', src, false, itemIndex, 'Too far away')
         return
     end
 
@@ -546,6 +602,8 @@ exports('RegisterDynamicContainer', function(containerId, items, options)
         type       = 'dynamic',
         locIndex   = nil,
         containerIndex = nil,
+        coords     = ToVec3(options.coords or options.location or options.center),
+        interactDistance = tonumber(options.interactDistance or options.distance) or 3.0,
         searchedBy = nil,
         -- Dynamic-only fields
         dynamic    = true,

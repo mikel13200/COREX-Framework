@@ -128,6 +128,39 @@ local function IsNearbyPlayer(src, targetSrc, maxDistance)
     return success and type(nearby) == 'table' and nearby[targetSrc] ~= nil
 end
 
+local function IsPlayerNearCoords(src, coords, maxDistance)
+    if not coords or coords.x == nil or coords.y == nil or coords.z == nil then
+        return false
+    end
+
+    local ped = GetPlayerPed(src)
+    if not ped or ped == 0 then return false end
+
+    local playerCoords = GetEntityCoords(ped)
+    if not playerCoords then return false end
+
+    local cx, cy, cz = tonumber(coords.x), tonumber(coords.y), tonumber(coords.z)
+    if not cx or not cy or not cz then return false end
+
+    local maxDist = tonumber(maxDistance) or 3.0
+    local dx = playerCoords.x - cx
+    local dy = playerCoords.y - cy
+    local dz = playerCoords.z - cz
+
+    return (dx * dx + dy * dy + dz * dz) <= (maxDist * maxDist)
+end
+
+local function IsPlayerNearShop(src, shop)
+    if type(shop) ~= 'table' then return false end
+
+    local npc = shop.npc or {}
+    local coords = npc.coords or shop.coords or shop.location
+    if not coords then return false end
+
+    local interactDistance = tonumber(npc.interactDistance or shop.interactDistance) or 2.5
+    return IsPlayerNearCoords(src, coords, interactDistance + 2.0)
+end
+
 ---Debug logging
 ---@param level string
 ---@param msg string
@@ -542,6 +575,13 @@ local function PickupItem(src, dropId, gridX, gridY)
         return false
     end
 
+    local pickupDistance = (Config.PickupDistance or 3.0) + 1.0
+    if not IsPlayerNearCoords(src, dropData.coords, pickupDistance) then
+        Debug('Warn', ('Pickup rejected: player %d too far from %s'):format(src, tostring(dropId)))
+        ClearBusy(src)
+        return false
+    end
+
     local inv = Inventories[src]
     if not inv then
         ClearBusy(src)
@@ -751,22 +791,24 @@ RegisterNetEvent('corex-inventory:server:use', function(itemName, slotId)
     local src = source
     if type(itemName) ~= 'string' then return end
     local inv = Inventories[src]
+    if not inv then return end
 
     local itemData = {}
-    if inv then
-        local item = FindInventoryItem(inv, itemName, slotId)
-        if item then
-            itemData = {
-                slot = item.slot,
-                count = item.count,
-                x = item.x,
-                y = item.y,
-                metadata = EnsureItemMetadata(item.name, item.metadata)
-            }
-            itemData.ammo = itemData.metadata.ammo
-            itemName = item.name
-        end
+    local item = FindInventoryItem(inv, itemName, slotId)
+    if not item then
+        Debug('Warn', ('Use rejected: player %d does not have %s'):format(src, tostring(itemName)))
+        return
     end
+
+    itemData = {
+        slot = item.slot,
+        count = item.count,
+        x = item.x,
+        y = item.y,
+        metadata = EnsureItemMetadata(item.name, item.metadata)
+    }
+    itemData.ammo = itemData.metadata.ammo
+    itemName = item.name
 
     TriggerClientEvent('corex-inventory:client:useItem', src, itemName, itemData)
 end)
@@ -1219,19 +1261,11 @@ exports('GetItemCount', function(src, itemName)
     return total
 end)
 
-RegisterNetEvent('corex-inventory:server:giveitem', function(item, count)
-    local src = source
-    count = count or 1
-
-    if not item then return end
-
-    local ok, err = AddItem(src, item, count)
-    if ok then
-        Debug('Info', 'Added ' .. item .. ' x' .. count)
-    else
-        Debug('Warn', 'Failed: ' .. (err or 'Unknown'))
-    end
-end)
+-- [SECURITY] NetEvent 'corex-inventory:server:giveitem' removed (was CRIT-01).
+-- Previously any client could trigger it to self-grant any item.
+-- Admins use the restricted server command /giveitem below (requires
+-- ACE permission `command.giveitem`). The client wrapper at
+-- corex-inventory/client/main.lua is also gated behind Config.Debug.
 
 RegisterCommand('giveitem', function(src, args)
     local item = args[1]
@@ -1285,6 +1319,12 @@ RegisterNetEvent('corex-inventory:server:purchaseShopItem', function(shopName, i
     end
 
     local shop = Shops[shopName]
+    if not IsPlayerNearShop(src, shop) then
+        Debug('Warn', ('Shop purchase rejected: player %d too far from %s'):format(src, shopName))
+        TriggerClientEvent('corex-inventory:client:shopPurchaseResult', src, false, 'Too far from shop', player.money and player.money.cash or 0)
+        return
+    end
+
     local itemConfig = nil
 
     local lowerTarget = string.lower(itemName)
@@ -1360,6 +1400,12 @@ RegisterNetEvent('corex-inventory:server:purchaseVehicleShopItem', function(shop
     local shop = Shops and Shops[shopName]
     if not shop or shop.type ~= 'vehicle' then
         TriggerClientEvent('corex-inventory:client:vehiclePurchaseResult', src, false, 'Vehicle shop not found.', player.money and player.money.cash or 0)
+        return
+    end
+
+    if not IsPlayerNearShop(src, shop) then
+        Debug('Warn', ('Vehicle purchase rejected: player %d too far from %s'):format(src, shopName))
+        TriggerClientEvent('corex-inventory:client:vehiclePurchaseResult', src, false, 'Too far from shop.', player.money and player.money.cash or 0)
         return
     end
 

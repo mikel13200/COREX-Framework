@@ -69,6 +69,7 @@ function handler.tick(state)
             end,
             {
                 consumeOnClose = true,
+                coords = state.location,
             }
         )
         state.ctx.registered = ok

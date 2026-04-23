@@ -121,6 +121,7 @@ function handler.stop(state, reason)
         )
     end, {
         consumeOnClose = true,
+        coords = rewardCoords,
     })
 
     CXE_RegisterSharedRewardCrate(rewardId, {

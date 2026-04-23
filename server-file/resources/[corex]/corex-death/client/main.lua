@@ -6,10 +6,30 @@ local respawnRequestedAt = 0
 local deathScreenOpenedAt = 0
 local nuiFocusGuardActive = false
 local respawnInProgress = false
+local emergencyRespawnRequested = false
+local deathScreenSuppressedUntil = 0
 
-local RESPAWN_TIMEOUT_MS = 10000
+local RESPAWN_TIMEOUT_MS = 4000
+local RESPAWN_REOPEN_GUARD_MS = 12000
 local FOCUS_GUARD_DURATION_MS = 1500
 local FOCUS_GUARD_INTERVAL_MS = 50
+
+local function SuppressDeathScreen(ms)
+    local untilTime = GetGameTimer() + (ms or RESPAWN_REOPEN_GUARD_MS)
+    if untilTime > deathScreenSuppressedUntil then
+        deathScreenSuppressedUntil = untilTime
+    end
+end
+
+local function IsDeathScreenSuppressed()
+    return deathScreenSuppressedUntil > GetGameTimer()
+end
+
+local function StartRespawnTransition()
+    respawnInProgress = true
+    nuiFocusGuardActive = false
+    SuppressDeathScreen()
+end
 
 CreateThread(function()
     local attempts = 0
@@ -100,13 +120,14 @@ end
 local function EnterDeathState(coords, options)
     options = options or {}
 
-    if isDead or respawnInProgress then
+    if isDead or respawnInProgress or IsDeathScreenSuppressed() then
         return
     end
 
     isDead = true
     respawnRequested = false
     respawnRequestedAt = 0
+    emergencyRespawnRequested = false
     deathCoords = coords
 
     if options.applyRagdoll then
@@ -120,9 +141,41 @@ local function ResetDeathState()
     isDead = false
     respawnRequested = false
     respawnRequestedAt = 0
+    emergencyRespawnRequested = false
     deathCoords = nil
     deathScreenOpenedAt = 0
     nuiFocusGuardActive = false
+end
+
+local function ForceLocalRespawn()
+    if respawnInProgress then return end
+    StartRespawnTransition()
+
+    local spawn = Config.DeathScreen.respawnCoords
+    local heading = spawn.heading or spawn.w or 0.0
+
+    CloseDeathScreen()
+    DoScreenFadeOut(500)
+    Wait(600)
+
+    NetworkResurrectLocalPlayer(spawn.x, spawn.y, spawn.z, heading, true, false)
+
+    local ped = PlayerPedId()
+    ClearPedTasksImmediately(ped)
+    ClearPedBloodDamage(ped)
+    SetEntityHealth(ped, 200)
+    SetEntityCoordsNoOffset(ped, spawn.x, spawn.y, spawn.z, false, false, false)
+    SetEntityInvincible(ped, false)
+    FreezeEntityPosition(ped, false)
+    SetPlayerInvincible(PlayerId(), false)
+    SetPlayerControl(PlayerId(), true, 0)
+
+    TriggerServerEvent('corex-death:server:localRespawnFinished')
+
+    ResetDeathState()
+    SuppressDeathScreen(5000)
+    respawnInProgress = false
+    DoScreenFadeIn(500)
 end
 
 CreateThread(function()
@@ -133,7 +186,7 @@ CreateThread(function()
             goto continue
         end
 
-        if isDead or respawnInProgress then
+        if isDead or respawnInProgress or IsDeathScreenSuppressed() then
             goto continue
         end
 
@@ -231,42 +284,74 @@ CreateThread(function()
     end
 end)
 
--- Safety net: if the server never replies to the respawn request, allow the
--- player to retry by resetting the request flag and re-opening focus.
+-- Safety net: if the normal respawn path stalls, try a server-side emergency
+-- respawn first, then a local fallback so the player does not stay locked.
 CreateThread(function()
     while true do
         Wait(1000)
         if isDead and respawnRequested and respawnRequestedAt > 0 then
             local elapsed = GetGameTimer() - respawnRequestedAt
             if elapsed > RESPAWN_TIMEOUT_MS then
-            if Config.Debug then
-                print('[COREX-DEATH] ^1Respawn request timed out after ' ..
-                    tostring(elapsed) .. 'ms, re-enabling button^0')
-            end
-                respawnRequested = false
-                respawnRequestedAt = 0
-                -- Re-assert focus in case something stole it during the wait.
-                SetNuiFocus(true, true)
-                StartNuiFocusGuard()
-                SendNUIMessage({ action = 'respawnFailed' })
+                if Config.Debug then
+                    print('[COREX-DEATH] ^1Respawn request timed out after ' ..
+                        tostring(elapsed) .. 'ms, using fallback^0')
+                end
+                if not emergencyRespawnRequested then
+                    emergencyRespawnRequested = true
+                    respawnRequestedAt = GetGameTimer()
+                    TriggerServerEvent('corex-death:server:emergencyRespawn', deathCoords and {
+                        x = deathCoords.x,
+                        y = deathCoords.y,
+                        z = deathCoords.z
+                    } or nil)
+                    SendNUIMessage({ action = 'respawnPending' })
+                else
+                    ForceLocalRespawn()
+                end
             end
         end
     end
 end)
 
 RegisterNetEvent('corex-death:client:prepareRespawn', function()
-    respawnInProgress = true
+    StartRespawnTransition()
     CloseDeathScreen()
     ResetDeathState()
+    SuppressDeathScreen()
 end)
 
 RegisterNetEvent('corex-death:client:resumeDeath', function()
-    respawnInProgress = false
+    if respawnInProgress or IsDeathScreenSuppressed() then
+        return
+    end
+
     EnterDeathState(nil, { applyRagdoll = false })
 end)
 
+RegisterNetEvent('corex-death:client:respawnRejected', function(reason)
+    if Config.Debug then
+        print('[COREX-DEATH] ^1Respawn rejected: ' .. tostring(reason) .. '^0')
+    end
+
+    if isDead then
+        respawnRequested = false
+        respawnRequestedAt = 0
+        emergencyRespawnRequested = false
+        respawnInProgress = false
+        deathScreenSuppressedUntil = 0
+        SetNuiFocus(true, true)
+        StartNuiFocusGuard()
+        SendNUIMessage({ action = 'respawnFailed' })
+    end
+end)
+
 RegisterNetEvent('corex-death:client:respawnFinished', function()
-    respawnInProgress = false
+    SuppressDeathScreen(3000)
+
+    CreateThread(function()
+        Wait(1500)
+        respawnInProgress = false
+    end)
 end)
 
 CreateThread(function()
@@ -279,7 +364,13 @@ CreateThread(function()
 
     AddStateBagChangeHandler('lifecycleState', playerBag, function(_, _, value)
         if value == 'dead' then
-            respawnInProgress = false
+            if respawnInProgress or IsDeathScreenSuppressed() then
+                if Config.Debug then
+                    print('[COREX-DEATH] ^3Ignored stale dead state during respawn^0')
+                end
+                return
+            end
+
             EnterDeathState(nil, { applyRagdoll = false })
         end
     end)

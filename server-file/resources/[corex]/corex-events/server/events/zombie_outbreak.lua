@@ -99,6 +99,7 @@ function handler.stop(state, reason)
         PendingRewards[containerId] = nil
     end, {
         consumeOnClose = true,
+        coords = outbreakCoords,
     })
 
     CXE_RegisterSharedRewardCrate(rewardId, {

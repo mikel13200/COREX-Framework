@@ -206,7 +206,8 @@ CreateThread(function()
             ZX.Audio.PlayHeartbeat(hbIntensity, now)
         end
 
-        Wait(33)
+        local renderWait = Cfg().renderWaitMs
+        Wait(renderWait ~= nil and renderWait or 0)
         ::continue::
     end
 end)
