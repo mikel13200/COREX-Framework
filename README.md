@@ -5,8 +5,28 @@
 - 📖 **Full Documentation:** <https://corex-zombies.gitbook.io/corex-docs>
 - 💬 **Discord Community:** <https://discord.gg/G95rtnb9sg>
 
-## Resources
-`corex-core` • `corex-spawn` • `corex-inventory` • `corex-weather` • `corex-death` • `corex-crafting` • `corex-hud` • `corex-events`
+## Individual Script Repositories
+
+Each COREX script also lives in its own dedicated repo under the [`corex-zombies`](https://github.com/corex-zombies) organization. If you only want to update a single script, grab the latest version from its repo instead of pulling the whole framework:
+
+| Script | Repository |
+|---|---|
+| `corex-core`       | <https://github.com/corex-zombies/corex-core> |
+| `corex-spawn`      | <https://github.com/corex-zombies/corex-spawn> |
+| `corex-inventory`  | <https://github.com/corex-zombies/corex-inventory> |
+| `corex-weather`    | <https://github.com/corex-zombies/corex-weather> |
+| `corex-death`      | <https://github.com/corex-zombies/corex-death> |
+| `corex-crafting`   | <https://github.com/corex-zombies/corex-crafting> |
+| `corex-hud`        | <https://github.com/corex-zombies/corex-hud> |
+| `corex-events`     | <https://github.com/corex-zombies/corex-events> |
+| `corex-loot`       | <https://github.com/corex-zombies/corex-loot> |
+| `corex-notify`     | <https://github.com/corex-zombies/corex-notify> |
+| `corex-redzones`   | <https://github.com/corex-zombies/corex-redzones> |
+| `corex-survival`   | <https://github.com/corex-zombies/corex-survival> |
+| `corex-zombies`    | <https://github.com/corex-zombies/corex-zombies> |
+| `corex-zones`      | <https://github.com/corex-zombies/corex-zones> |
+
+> The monorepo stays in sync automatically — any change pushed to an individual repo is mirrored here within seconds.
 
 ---
 
