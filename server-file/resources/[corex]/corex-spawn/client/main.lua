@@ -24,6 +24,11 @@ local currentCamFov = 45.0
 local minFov = 20.0
 local maxFov = 80.0
 
+local function SetAppearanceUiSuppression(active)
+    TriggerEvent('corex-hud:client:setTemporaryHidden', active == true)
+    TriggerEvent('corex-inventory:client:setHotbarVisible', active ~= true)
+end
+
 -- Wait for corex-core
 CreateThread(function()
     local attempts = 0
@@ -1187,6 +1192,7 @@ function OpenClothingUI(options)
 
     isUIOpen = true
     SetNuiFocus(true, true)
+    SetAppearanceUiSuppression(true)
     
     local clothingData = GetCurrentClothingData()
     
@@ -1201,6 +1207,7 @@ end
 function CloseClothingUI()
     isUIOpen = false
     SetNuiFocus(false, false)
+    SetAppearanceUiSuppression(false)
     
     SendNUIMessage({
         action = 'close'
@@ -1526,6 +1533,29 @@ RegisterNUICallback('panCamera', function(data, cb)
     RefreshCreationCameraView()
     
     cb('ok')
+end)
+
+CreateThread(function()
+    while true do
+        if isUIOpen then
+            HideHudAndRadarThisFrame()
+            DisplayRadar(false)
+            Wait(0)
+        else
+            Wait(200)
+        end
+    end
+end)
+
+AddEventHandler('onResourceStop', function(resourceName)
+    if resourceName ~= GetCurrentResourceName() then
+        return
+    end
+
+    if isUIOpen then
+        SetAppearanceUiSuppression(false)
+        SetNuiFocus(false, false)
+    end
 end)
 
 RegisterNetEvent('corex-spawn:client:requestPosition', function()

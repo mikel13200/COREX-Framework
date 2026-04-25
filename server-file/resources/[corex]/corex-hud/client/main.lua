@@ -1,5 +1,6 @@
 local Corex = nil
 local hudVisible = true
+local temporaryHudHidden = false
 local playerName = ''
 local playerServerId = 0
 
@@ -117,6 +118,10 @@ local function showHud(visible)
 end
 
 local function shouldHideHud()
+    if temporaryHudHidden then
+        return true
+    end
+
     if Config.HideWhenDead and Corex.Functions.IsDead() then
         return true
     end
@@ -131,6 +136,21 @@ local function shouldHideHud()
 
     return false
 end
+
+RegisterNetEvent('corex-hud:client:setTemporaryHidden', function(hidden)
+    temporaryHudHidden = hidden == true
+
+    if temporaryHudHidden then
+        if hudVisible then
+            showHud(false)
+        end
+        return
+    end
+
+    if not shouldHideHud() and not hudVisible then
+        showHud(true)
+    end
+end)
 
 local hudComponents = {
     1, 2, 3, 4, 6, 7, 8, 9, 13, 17, 18, 19, 20, 21, 22

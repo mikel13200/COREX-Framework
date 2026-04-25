@@ -880,6 +880,9 @@ window.addEventListener('message', (event) => {
         case 'closeLootContainer':
             closeLootContainer();
             break;
+        case 'setHotbarVisible':
+            setHotbarVisible(data.visible);
+            break;
     }
 });
 
@@ -898,6 +901,11 @@ function forceClose() {
 
 const hotbarContainer = document.getElementById('hotbar-container');
 let hotbarData = {};
+
+function setHotbarVisible(visible) {
+    if (!hotbarContainer) return;
+    hotbarContainer.classList.toggle('hidden', visible === false);
+}
 
 function setupHotbarDragAndDrop() {
     const hotbarSlots = document.querySelectorAll('.hotbar-slot');

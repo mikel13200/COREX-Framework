@@ -44,6 +44,7 @@ end
 
 local isOpen = false
 local isShopOpen = false
+local hotbarVisible = true
 local currentShop = nil
 local currentShopType = nil
 local droppedItems = {}
@@ -365,6 +366,18 @@ RegisterNetEvent('corex-inventory:client:update', function(data)
             inventory = data
         })
     end
+end)
+
+local function SetHotbarVisible(visible)
+    hotbarVisible = visible ~= false
+    SendNUIMessage({
+        action = 'setHotbarVisible',
+        visible = hotbarVisible
+    })
+end
+
+RegisterNetEvent('corex-inventory:client:setHotbarVisible', function(visible)
+    SetHotbarVisible(visible)
 end)
 
 RegisterNetEvent('corex-inventory:client:syncDroppedItems', function(items)
