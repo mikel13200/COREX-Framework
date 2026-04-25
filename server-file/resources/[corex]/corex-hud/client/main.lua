@@ -9,14 +9,24 @@ local lastArmor = 0
 local lastHunger = 100
 local lastThirst = 100
 local lastTalking = false
+local lastAmmoTotal = 0
+local lastAmmoClip = 0
+local lastAmmoMaxClip = 0
+local lastHasWeapon = false
+local lastWeaponImage = nil
+local lastWeaponLabel = nil
 
 local STATUS_KEYS = { 'infection', 'poison', 'bleeding', 'sick', 'cold' }
 local lastStatus = { infection = 0, poison = 0, bleeding = 0, sick = 0, cold = 0 }
 
 local minimapScaleform = nil
+local unarmedWeaponHash = `WEAPON_UNARMED`
+local minimapLayoutApplied = false
+local radarVisible = nil
 
 local hud3DEnabled = Config.Enable3D
 local minimapShown = Config.ShowMinimap
+local shouldHideHud
 
 local function loadMinimapKvs()
     local keys = { x = 'corex_hud_minimap_x', y = 'corex_hud_minimap_y',
@@ -62,6 +72,84 @@ local function getPlayerName()
     return GetPlayerName(PlayerId()) or 'Unknown'
 end
 
+local function getWeaponImageName(weaponHash)
+    if not weaponHash or weaponHash == 0 then
+        return nil
+    end
+
+    local ok, weaponName = pcall(function()
+        return exports['corex-inventory']:GetCurrentWeaponName()
+    end)
+
+    if ok and type(weaponName) == 'string' and weaponName ~= '' then
+        return weaponName
+    end
+
+    return nil
+end
+
+local function getWeaponLabel(weaponHash)
+    if not weaponHash or weaponHash == 0 then
+        return nil
+    end
+
+    local ok, weaponName = pcall(function()
+        return exports['corex-inventory']:GetCurrentWeaponName()
+    end)
+
+    if not ok or type(weaponName) ~= 'string' or weaponName == '' then
+        return nil
+    end
+
+    local defOk, itemDef = pcall(function()
+        return exports['corex-inventory']:GetItemDefinition(weaponName)
+    end)
+
+    if defOk and type(itemDef) == 'table' and type(itemDef.label) == 'string' and itemDef.label ~= '' then
+        return itemDef.label
+    end
+
+    return weaponName
+end
+
+local function getWeaponHudState()
+    local ped = PlayerPedId()
+    if not ped or ped == 0 or not DoesEntityExist(ped) or IsEntityDead(ped) then
+        return false, 0, 0, 0, nil, nil, nil
+    end
+
+    local weaponHash = GetSelectedPedWeapon(ped)
+    if not weaponHash or weaponHash == 0 or weaponHash == unarmedWeaponHash then
+        return false, 0, 0, 0, nil, nil, nil
+    end
+
+    local totalAmmo = tonumber(GetAmmoInPedWeapon(ped, weaponHash)) or 0
+    local clipAmmo = 0
+    local maxClipAmmo = 0
+    local imageName = getWeaponImageName(weaponHash)
+    local weaponLabel = getWeaponLabel(weaponHash)
+
+    local hasClipData, currentClip = GetAmmoInClip(ped, weaponHash)
+    if hasClipData and currentClip then
+        clipAmmo = tonumber(currentClip) or 0
+    end
+
+    local hasMaxClipData, currentMaxClip = GetMaxAmmoInClip(ped, weaponHash, true)
+    if hasMaxClipData and currentMaxClip then
+        maxClipAmmo = tonumber(currentMaxClip) or 0
+    end
+
+    if maxClipAmmo <= 0 then
+        maxClipAmmo = clipAmmo > 0 and clipAmmo or math.max(0, totalAmmo)
+    end
+
+    if clipAmmo <= 0 and totalAmmo > 0 then
+        clipAmmo = maxClipAmmo > 0 and math.min(totalAmmo, maxClipAmmo) or totalAmmo
+    end
+
+    return true, math.max(0, totalAmmo), math.max(0, clipAmmo), math.max(0, maxClipAmmo), imageName, weaponLabel
+end
+
 local function sendInit()
     SendNUIMessage({
         action = 'init',
@@ -72,11 +160,16 @@ local function sendInit()
             showHunger = Config.ShowHunger,
             showThirst = Config.ShowThirst,
             enable3D = hud3DEnabled,
-            tiltAngle = Config.TiltAngle,
+            perspective = Config.Perspective,
+            perspectiveOrigin = Config.PerspectiveOrigin,
+            rotateX = Config.RotateX,
+            rotateY = Config.RotateY,
+            rotateZ = Config.RotateZ,
             position = Config.Position,
             minimap = Config.Minimap,
             showMinimap = minimapShown,
             hideMinimapHealthArmor = Config.HideMinimapHealthArmor,
+            statusEffects = Config.StatusEffects,
             colors = Config.Colors,
             barWidth = Config.BarWidth,
             barHeight = Config.BarHeight
@@ -100,7 +193,13 @@ local function pushFullUpdate()
         },
         playerName = playerName,
         playerId = playerServerId,
-        talking = lastTalking
+        talking = lastTalking,
+        ammoTotal = lastAmmoTotal,
+        ammoClip = lastAmmoClip,
+        ammoMaxClip = lastAmmoMaxClip,
+        hasWeapon = lastHasWeapon,
+        weaponImage = lastWeaponImage,
+        weaponLabel = lastWeaponLabel
     })
 end
 
@@ -117,16 +216,33 @@ local function showHud(visible)
     })
 end
 
-local function shouldHideHud()
+local function syncHudVisibility()
+    if shouldHideHud() then
+        if hudVisible then
+            showHud(false)
+        end
+        return
+    end
+
+    if not hudVisible then
+        showHud(true)
+    end
+end
+
+shouldHideHud = function()
     if temporaryHudHidden then
         return true
+    end
+
+    if not Corex or not Corex.Functions then
+        return IsPauseMenuActive()
     end
 
     if Config.HideWhenDead and Corex.Functions.IsDead() then
         return true
     end
 
-    if Config.HideInVehicle and Corex.Functions.IsInVehicle() then
+    if Config.HideInVehicle and ((cache and cache.vehicle) or Corex.Functions.IsInVehicle()) then
         return true
     end
 
@@ -147,26 +263,86 @@ RegisterNetEvent('corex-hud:client:setTemporaryHidden', function(hidden)
         return
     end
 
-    if not shouldHideHud() and not hudVisible then
-        showHud(true)
-    end
+    syncHudVisibility()
 end)
+
+AddEventHandler('corex-inventory:client:hudWeaponState', function(hasWeapon, ammoTotal)
+    local nextHasWeapon = hasWeapon == true
+    local nextAmmoTotal = math.max(0, tonumber(ammoTotal) or 0)
+    local nextAmmoClip = nextHasWeapon and nextAmmoTotal or 0
+    local nextAmmoMaxClip = nextHasWeapon and nextAmmoTotal or 0
+    local nextWeaponImage = nil
+    local nextWeaponLabel = nil
+
+    if nextHasWeapon then
+        local weaponHash = GetSelectedPedWeapon(PlayerPedId())
+        nextWeaponImage = getWeaponImageName(weaponHash)
+        nextWeaponLabel = getWeaponLabel(weaponHash)
+    end
+
+    if nextHasWeapon == lastHasWeapon
+        and nextAmmoTotal == lastAmmoTotal
+        and nextAmmoClip == lastAmmoClip
+        and nextAmmoMaxClip == lastAmmoMaxClip
+        and nextWeaponImage == lastWeaponImage
+        and nextWeaponLabel == lastWeaponLabel then
+        return
+    end
+
+    lastHasWeapon = nextHasWeapon
+    lastAmmoTotal = nextAmmoTotal
+    lastAmmoClip = nextAmmoClip
+    lastAmmoMaxClip = nextAmmoMaxClip
+    lastWeaponImage = nextWeaponImage
+    lastWeaponLabel = nextWeaponLabel
+
+    pushPartialUpdate({
+        hasWeapon = lastHasWeapon,
+        ammoTotal = lastAmmoTotal,
+        ammoClip = lastAmmoClip,
+        ammoMaxClip = lastAmmoMaxClip,
+        weaponImage = lastWeaponImage,
+        weaponLabel = lastWeaponLabel
+    })
+end)
+
+if lib and lib.onCache then
+    lib.onCache('vehicle', function()
+        syncHudVisibility()
+    end)
+end
 
 local hudComponents = {
     1, 2, 3, 4, 6, 7, 8, 9, 13, 17, 18, 19, 20, 21, 22
 }
+local reticleComponent = 14
+local canHideHudThisFrame = type(HideHudThisFrame) == 'function'
 
 local function ShouldShowNativeAmmoHud()
-    local ped = PlayerPedId()
-    if not ped or ped == 0 or not DoesEntityExist(ped) then
+    if Config.ShowNativeAmmoHud ~= true then
         return false
     end
 
-    if IsEntityDead(ped) then
-        return false
+    return lastHasWeapon
+end
+
+local function setRadarVisible(visible)
+    if radarVisible == visible then
+        return
     end
 
-    return IsPedArmed(ped, 4)
+    radarVisible = visible == true
+    DisplayRadar(radarVisible)
+end
+
+local function applyMinimapHealthArmourLayout()
+    if not Config.HideMinimapHealthArmor or not minimapScaleform then
+        return
+    end
+
+    BeginScaleformMovieMethod(minimapScaleform, 'SETUP_HEALTH_ARMOUR')
+    ScaleformMovieMethodAddParamInt(3)
+    EndScaleformMovieMethod()
 end
 
 local function applyRuntimeMinimapLayout()
@@ -226,6 +402,8 @@ CreateThread(function()
             end
         end
 
+        applyMinimapHealthArmourLayout()
+
         -- Removed the bigmap double-toggle; the main loop (line ~213)
         -- already handles minimap layout correctly.
     end
@@ -233,28 +411,36 @@ CreateThread(function()
     local componentCount = #hudComponents
     while true do
         if hudVisible then
-            for i = 1, componentCount do
-                HideHudComponentThisFrame(hudComponents[i])
-            end
-
             if ShouldShowNativeAmmoHud() then
+                for i = 1, componentCount do
+                    HideHudComponentThisFrame(hudComponents[i])
+                end
                 DisplayAmmoThisFrame(true)
+            else
+                if canHideHudThisFrame then
+                    HideHudThisFrame()
+                    ShowHudComponentThisFrame(reticleComponent)
+                else
+                    for i = 1, componentCount do
+                        HideHudComponentThisFrame(hudComponents[i])
+                    end
+                end
             end
 
             if not minimapShown then
-                DisplayRadar(false)
+                setRadarVisible(false)
             else
-                DisplayRadar(true)
-                applyRuntimeMinimapLayout()
+                setRadarVisible(true)
                 if Config.Minimap and Config.Minimap.forceSmall and IsBigmapActive() then
                     SetBigmapActive(false, false)
                 end
 
-                if Config.HideMinimapHealthArmor and minimapScaleform then
-                    BeginScaleformMovieMethod(minimapScaleform, 'SETUP_HEALTH_ARMOUR')
-                    ScaleformMovieMethodAddParamInt(3)
-                    EndScaleformMovieMethod()
+                if not minimapLayoutApplied then
+                    applyRuntimeMinimapLayout()
+                    minimapLayoutApplied = true
                 end
+
+                applyMinimapHealthArmourLayout()
             end
             Wait(0)
         else
@@ -269,6 +455,7 @@ local function applyMinimapLayout()
     local mm = Config.Minimap
 
     applyRuntimeMinimapLayout()
+    minimapLayoutApplied = true
 
     if mm.useCustomLayout or mm.useTopLeftPreset then
         -- Force the radar scaleform to re-read the new component positions.
@@ -282,6 +469,8 @@ local function applyMinimapLayout()
     if mm.hideFogOfWar then
         SetMinimapHideFow(true)
     end
+
+    applyMinimapHealthArmourLayout()
 end
 
 CreateThread(function()
@@ -308,6 +497,7 @@ CreateThread(function()
     for _, key in ipairs(STATUS_KEYS) do
         lastStatus[key] = tonumber(state[key]) or 0
     end
+    lastHasWeapon, lastAmmoTotal, lastAmmoClip, lastAmmoMaxClip, lastWeaponImage, lastWeaponLabel = getWeaponHudState()
 
     pushFullUpdate()
 
@@ -325,9 +515,6 @@ CreateThread(function()
 
             local health = Corex.Functions.GetHealth()
             local armor = math.max(0, math.min(100, Corex.Functions.GetArmour()))
-            local hunger = tonumber(LocalPlayer.state.hunger) or lastHunger
-            local thirst = tonumber(LocalPlayer.state.thirst) or lastThirst
-
             local talking = NetworkIsPlayerTalking(PlayerId())
             local dirty = false
             local payload = {}
@@ -340,16 +527,6 @@ CreateThread(function()
             if armor ~= lastArmor then
                 lastArmor = armor
                 payload.armor = armor
-                dirty = true
-            end
-            if hunger ~= lastHunger then
-                lastHunger = hunger
-                payload.hunger = hunger
-                dirty = true
-            end
-            if thirst ~= lastThirst then
-                lastThirst = thirst
-                payload.thirst = thirst
                 dirty = true
             end
             if talking ~= lastTalking then
@@ -418,6 +595,7 @@ RegisterNetEvent('corex:client:playerLoaded', function()
     for _, key in ipairs(STATUS_KEYS) do
         lastStatus[key] = tonumber(state[key]) or 0
     end
+    lastHasWeapon, lastAmmoTotal, lastAmmoClip, lastAmmoMaxClip, lastWeaponImage, lastWeaponLabel = getWeaponHudState()
 
     pushFullUpdate()
 end)
@@ -444,6 +622,8 @@ end, false)
 
 RegisterCommand('togglemap', function()
     minimapShown = not minimapShown
+    minimapLayoutApplied = false
+    radarVisible = nil
     sendInit()
     if minimapShown then applyMinimapLayout() end
     if Corex and Corex.Functions and Corex.Functions.Notify then
@@ -474,6 +654,8 @@ RegisterCommand('mappos', function(_, args)
     Config.Minimap.alignX = ax
     Config.Minimap.alignY = ay
     minimapShown = true
+    minimapLayoutApplied = false
+    radarVisible = nil
 
     SetResourceKvp('corex_hud_minimap_x', tostring(Config.Minimap.x))
     SetResourceKvp('corex_hud_minimap_y', tostring(Config.Minimap.y))

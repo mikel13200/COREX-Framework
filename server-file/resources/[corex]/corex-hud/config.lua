@@ -1,23 +1,28 @@
 Config = {}
 
-Config.UpdateInterval = 200
+Config.UpdateInterval = 400
 
 Config.Position = {
-    x = 25,
-    y = 'top',
-    margin = 12,
-    avoidMinimap = true,
-    minimapSpacing = 100
+    x = 24,
+    y = 'bottom',
+    margin = 24,
+    avoidMinimap = false,
+    minimapSpacing = 24
 }
 
-Config.Enable3D = false
-Config.TiltAngle = 35
+Config.Enable3D = true
+Config.Perspective = 820
+Config.PerspectiveOrigin = '20% 80%'
+Config.RotateX = 8
+Config.RotateY = -12
+Config.RotateZ = -1
 
 Config.ShowHealth = true
 Config.ShowArmor = true
 Config.ShowPlayerName = true
 Config.ShowHunger = true
 Config.ShowThirst = true
+Config.ShowNativeAmmoHud = false
 
 Config.StatusEffects = {
     infection = { show = true, color = '#22c55e' },
@@ -35,7 +40,7 @@ Config.Minimap = {
     useTopLeftPreset = false,
     useBottomLeftPreset = true,
     presetOffsetX = 0.0,
-    presetOffsetY = -0.18,
+    presetOffsetY = -0.10,
     alignX = 'L',
     alignY = 'T',
     x = -0.0045,

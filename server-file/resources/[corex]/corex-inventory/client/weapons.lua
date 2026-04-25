@@ -9,6 +9,9 @@ local consecutiveShots = 0
 local lastAmmoCount = 0
 local blockCameraShakeUntil = 0
 local isReloadingWeapon = false
+local lastHudWeaponState = { armed = false, ammo = 0, hash = 0, image = nil }
+local TriggerHudWeaponState
+local EmitCurrentHudWeaponState
 
 local function DebugPrint(msg)
     if Config and Config.Debug then print(msg) end
@@ -107,6 +110,7 @@ local function ClearEquippedWeaponState()
     consecutiveShots = 0
     lastAmmoCount = 0
     isReloadingWeapon = false
+    TriggerHudWeaponState(false, 0, nil, nil)
 end
 
 local function TryReloadEquippedWeapon(expectedAmmoType)
@@ -143,6 +147,103 @@ local function GetWeaponCategory(weaponName)
     end
     
     return 'pistol'
+end
+
+local function GetWeaponDefinitionByName(weaponName)
+    if not weaponName or type(weaponName) ~= 'string' then
+        return nil
+    end
+
+    local upperName = string.upper(weaponName)
+    if not string.find(upperName, 'WEAPON_') then
+        upperName = 'WEAPON_' .. upperName
+    end
+
+    return Weapons[upperName] or Items[string.lower(upperName)]
+end
+
+local function ResolveWeaponNameFromHash(weaponHash)
+    if not weaponHash or weaponHash == 0 then
+        return nil
+    end
+
+    for weaponName, _ in pairs(Weapons or {}) do
+        if GetHashKey(weaponName) == weaponHash then
+            return weaponName
+        end
+    end
+
+    for itemName, itemDef in pairs(Items or {}) do
+        if type(itemName) == 'string' and itemDef and string.sub(string.lower(itemName), 1, 7) == 'weapon_' then
+            if GetHashKey(string.upper(itemName)) == weaponHash then
+                return string.upper(itemName)
+            end
+        end
+    end
+
+    return nil
+end
+
+local function GetCurrentSelectedWeaponInfo()
+    local ped = PlayerPedId()
+    if not ped or ped == 0 or not DoesEntityExist(ped) then
+        return nil, nil, nil
+    end
+
+    local weaponHash = GetSelectedPedWeapon(ped)
+    if not weaponHash or weaponHash == 0 or weaponHash == `WEAPON_UNARMED` then
+        return nil, nil, nil
+    end
+
+    local weaponName = equippedWeapon
+    if not weaponName or weaponName == 'UNKNOWN_WEAPON' or GetHashKey(weaponName) ~= weaponHash then
+        weaponName = ResolveWeaponNameFromHash(weaponHash)
+    end
+
+    if not weaponName then
+        return nil, nil, weaponHash
+    end
+
+    local weaponDef = GetWeaponDefinitionByName(weaponName)
+    return weaponName, weaponDef and weaponDef.image or nil, weaponHash
+end
+
+TriggerHudWeaponState = function(armed, ammo, weaponHash, imageName)
+    local nextState = {
+        armed = armed == true,
+        ammo = armed and SafeAmmo(ammo) or 0,
+        hash = armed and (weaponHash or 0) or 0,
+        image = armed and imageName or nil
+    }
+
+    if lastHudWeaponState.armed == nextState.armed
+        and lastHudWeaponState.ammo == nextState.ammo
+        and lastHudWeaponState.hash == nextState.hash
+        and lastHudWeaponState.image == nextState.image then
+        return
+    end
+
+    lastHudWeaponState = nextState
+
+    TriggerEvent('corex-inventory:client:hudWeaponState', nextState.armed, nextState.ammo, nextState.hash ~= 0 and nextState.hash or nil, nextState.image)
+end
+
+EmitCurrentHudWeaponState = function(ammo)
+    local ped = PlayerPedId()
+    if not ped or ped == 0 or not DoesEntityExist(ped) then
+        TriggerHudWeaponState(false, 0, nil, nil)
+        return
+    end
+
+    local weaponHash = GetSelectedPedWeapon(ped)
+    if not weaponHash or weaponHash == 0 or weaponHash == `WEAPON_UNARMED` then
+        TriggerHudWeaponState(false, 0, nil, nil)
+        return
+    end
+
+    local _, imageName = GetCurrentSelectedWeaponInfo()
+    local currentAmmo = ammo ~= nil and ammo or GetAmmoInPedWeapon(ped, weaponHash)
+    TriggerHudWeaponState(true, currentAmmo, weaponHash, imageName)
 end
 
 local function ApplyScreenShake(category)
@@ -323,6 +424,7 @@ AddEventHandler('corex-inventory:internal:equipWeapon', function(weaponName, ite
     equippedWeaponSlot = normalizedData.slot
     ApplyLocalAmmoState(ammo)
     isReloadingWeapon = false
+    EmitCurrentHudWeaponState(ammo)
 
     Corex.Functions.Notify('Weapon equipped', 'success', 2000)
 end)
@@ -376,6 +478,7 @@ RegisterNetEvent('corex-inventory:client:ammoReloadResult', function(success, sl
     SetPedAmmo(ped, hash, safeAmmo)
     SetCurrentPedWeapon(ped, hash, true)
     isReloadingWeapon = false
+    EmitCurrentHudWeaponState(safeAmmo)
 
     Corex.Functions.Notify('Reloaded ' .. tostring(addedAmmo or 10) .. ' rounds', 'success', 2000)
 end)
@@ -413,21 +516,15 @@ CreateThread(function()
             if weaponHash ~= unarmedHash then
                 if currentWeaponHash ~= weaponHash then
                     currentWeaponHash = weaponHash
-                    equippedWeapon = nil
-                    for weaponName, _ in pairs(Weapons) do
-                        if GetHashKey(weaponName) == weaponHash then
-                            equippedWeapon = weaponName
-                            DebugPrint("^2[Recoil] Weapon detected: " .. weaponName .. "^0")
-                            break
-                        end
-                    end
-                    if not equippedWeapon then
-                        equippedWeapon = 'UNKNOWN_WEAPON'
+                    equippedWeapon = ResolveWeaponNameFromHash(weaponHash) or 'UNKNOWN_WEAPON'
+                    if equippedWeapon ~= 'UNKNOWN_WEAPON' then
+                        DebugPrint("^2[Recoil] Weapon detected: " .. equippedWeapon .. "^0")
                     end
                 end
 
                 if equippedWeapon then
                     local currentAmmo = GetAmmoInPedWeapon(cachedPed, weaponHash)
+                    EmitCurrentHudWeaponState(currentAmmo)
 
                     if lastAmmoCount > 0 and currentAmmo < lastAmmoCount then
                         consecutiveShots = consecutiveShots + 1
@@ -483,4 +580,14 @@ AddEventHandler('onResourceStop', function(resourceName)
         RemoveWeaponFromPed(ped, hash)
         ClearEquippedWeaponState()
     end
+end)
+
+exports('GetCurrentWeaponName', function()
+    local weaponName = GetCurrentSelectedWeaponInfo()
+    return weaponName
+end)
+
+exports('GetCurrentWeaponImage', function()
+    local _, imageName = GetCurrentSelectedWeaponInfo()
+    return imageName
 end)

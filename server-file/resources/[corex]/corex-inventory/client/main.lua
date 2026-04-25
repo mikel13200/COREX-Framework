@@ -54,6 +54,7 @@ local PICKUP_DISTANCE = Config.PickupDistance or 3.0
 local DEFAULT_PROP = 'prop_med_bag_01b'
 local MAX_DROPPED_ITEMS = 500
 local activeRentalVehicle = nil
+local weaponImageCache = nil
 
 local function GetRarityColor(rarity)
     if not Rarity then return {r = 139, g = 148, b = 158, a = 255} end
@@ -87,6 +88,99 @@ local function GetItemDefinition(itemName)
 
     local ammoDef = Ammo[itemName]
     if ammoDef then return ammoDef end
+
+    return nil
+end
+
+local function BuildWeaponImageCache()
+    if weaponImageCache then
+        return weaponImageCache
+    end
+
+    weaponImageCache = {}
+
+    local function CacheWeaponImageHash(hash, imageName)
+        if not hash or hash == 0 or not imageName or imageName == '' then
+            return
+        end
+
+        weaponImageCache[hash] = imageName
+        weaponImageCache[tostring(hash)] = imageName
+
+        local unsignedHash = hash
+        if hash < 0 then
+            unsignedHash = hash + 4294967296
+        end
+
+        local signedHash = hash
+        if hash >= 2147483648 then
+            signedHash = hash - 4294967296
+        end
+
+        weaponImageCache[unsignedHash] = imageName
+        weaponImageCache[signedHash] = imageName
+        weaponImageCache[tostring(unsignedHash)] = imageName
+        weaponImageCache[tostring(signedHash)] = imageName
+    end
+
+    for itemName, itemDef in pairs(Items or {}) do
+        if type(itemName) == 'string' and string.sub(string.lower(itemName), 1, 7) == 'weapon_' and itemDef and itemDef.image then
+            local itemHash = GetHashKey(string.upper(itemName))
+            CacheWeaponImageHash(itemHash, itemDef.image)
+        end
+    end
+
+    for weaponName, weaponDef in pairs(Weapons or {}) do
+        local hash = GetHashKey(string.upper(weaponName))
+        if weaponDef and weaponDef.image then
+            CacheWeaponImageHash(hash, weaponDef.image)
+        end
+    end
+
+    return weaponImageCache
+end
+
+local function GetWeaponImage(identifier)
+    if identifier == nil then
+        return nil
+    end
+
+    if type(identifier) == 'number' then
+        local cache = BuildWeaponImageCache()
+        local direct = cache[identifier]
+        if direct then return direct end
+
+        local stringKey = tostring(identifier)
+        if cache[stringKey] then
+            return cache[stringKey]
+        end
+
+        local unsignedIdentifier = identifier
+        if identifier < 0 then
+            unsignedIdentifier = identifier + 4294967296
+        end
+
+        local signedIdentifier = identifier
+        if identifier >= 2147483648 then
+            signedIdentifier = identifier - 4294967296
+        end
+
+        return cache[unsignedIdentifier]
+            or cache[signedIdentifier]
+            or cache[tostring(unsignedIdentifier)]
+            or cache[tostring(signedIdentifier)]
+    end
+
+    local itemDef = GetItemDefinition(identifier)
+    if itemDef and itemDef.image then
+        return itemDef.image
+    end
+
+    local upperName = string.upper(tostring(identifier))
+    itemDef = GetItemDefinition(upperName)
+    if itemDef and itemDef.image then
+        return itemDef.image
+    end
 
     return nil
 end
@@ -1055,6 +1149,8 @@ end)
 
 exports('OpenShop', OpenShop)
 exports('CloseShop', CloseShop)
+exports('GetItemDefinition', GetItemDefinition)
+exports('GetWeaponImage', GetWeaponImage)
 
 -- ========== LOOT CONTAINER MODE ==========
 

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Teko:wght@600;700&family=JetBrains+Mono:wght@500;700&display=swap');
 
 * {
     margin: 0;
@@ -7,33 +7,40 @@
 }
 
 body {
-    font-family: 'Rajdhani', sans-serif;
     background: transparent;
     overflow: hidden;
+    font-family: 'Rajdhani', sans-serif;
     -webkit-user-select: none;
     user-select: none;
 }
 
 :root {
-    --col-health: #ffffff;
-    --col-armor: #29b6f6;
-    --col-stamina: #00e5ff;
-    --col-hunger: #f59e0b;
-    --col-thirst: #06b6d4;
-    --col-infection: #22c55e;
-    --col-steps: #a78bfa;
-    --col-clock: #fbbf24;
-    --col-compass: #f472b6;
-    --col-danger: #ef4444;
+    --hud-white: #ffffff;
+    --hud-dim: rgba(255, 255, 255, 0.62);
+    --hud-track: rgba(255, 255, 255, 0.15);
+    --infection-color: #22c55e;
+    --poison-color: #a855f7;
+    --bleeding-color: #ef4444;
+    --sick-color: #eab308;
+    --health-color: #ffffff;
+    --health-warning: #ffc107;
+    --health-danger: #ff5722;
+    --health-critical: #f44336;
+    --shield-color: #2196f3;
+    --cryo-color: #64b5f6;
+    --hunger-color: #f59e0b;
+    --thirst-color: #06b6d4;
 }
 
 .hud-container {
     position: fixed;
-    bottom: 1vh;
-    left: 1.2vh;
+    left: 24px;
+    bottom: 24px;
     z-index: 9999;
+    width: 420px;
     opacity: 1;
-    transition: opacity 0.3s ease;
+    transform-origin: left bottom;
+    transition: opacity 0.25s ease;
 }
 
 .hud-container.hidden {
@@ -41,331 +48,375 @@ body {
     pointer-events: none;
 }
 
-.hud-frame {
-    background: transparent;
-    border: none;
-    padding: 0;
-    min-width: 0;
-    perspective: 500px;
-    transform-style: preserve-3d;
-}
-
+.hud-frame,
+.hud-shell,
 .hud-content {
-    transform: rotateY(35deg);
-    transform-origin: left center;
-    width: 280px;
-    transition: transform 0.3s ease;
-}
-
-.hud-content.flat {
-    transform: none;
-}
-
-.hud-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 4px;
-    gap: 0;
-    transform: translateZ(5px);
-}
-
-.voice-line {
-    width: 4px;
-    height: 24px;
-    background: var(--col-stamina);
-    box-shadow: 0 0 10px var(--col-stamina);
-    margin-right: 8px;
-}
-
-.voice-icon {
-    width: auto;
-    height: auto;
-    color: #e0e0e0;
-    opacity: 1;
-    margin-right: 6px;
-    display: flex;
-    align-items: center;
-}
-
-.voice-icon svg {
-    width: 18px;
-    height: 18px;
-    fill: #e0e0e0;
-}
-
-.hud-header.talking .voice-icon svg {
-    fill: var(--col-stamina);
-}
-
-.hud-header.talking .voice-line {
-    animation: pulseVoice 0.8s ease-in-out infinite;
-}
-
-@keyframes pulseVoice {
-    0%, 100% { opacity: 1; height: 24px; }
-    50% { opacity: 0.6; height: 18px; }
-}
-
-.player-name {
-    flex: unset;
-    font-size: 22px;
-    font-weight: 700;
-    color: #ffffff;
-    letter-spacing: 0.5px;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
-    margin-top: -2px;
-}
-
-.player-id {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.45);
-    margin-left: 6px;
-    padding: 2px 6px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(0, 0, 0, 0.4);
-    letter-spacing: 0.5px;
-}
-
-.bars-wrapper {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-top: 2px;
-}
-
-.bar-row {
-    position: relative;
-    height: 14px;
     width: 100%;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    background: rgba(5, 8, 12, 0.94);
 }
 
-.armor-row {
-    border-color: rgba(41, 182, 246, 0.5);
+.hud-frame {
+    perspective: 820px;
+    perspective-origin: 20% 80%;
 }
 
-.bar-fill-wrapper {
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 50%;
-    overflow: hidden;
-    transition: width 0.3s ease;
-    will-change: width;
-    contain: layout paint;
-}
-
-.bar-fill {
-    width: 100%;
-    height: 100%;
-}
-
-.armor-fill {
-    background: linear-gradient(90deg, #0288d1, #29b6f6);
-    box-shadow: inset 0 0 10px rgba(41, 182, 246, 0.5);
-}
-
-.bar-segments-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    display: flex;
-    pointer-events: none;
-}
-
-.segment-divider {
-    flex: 1;
-    border-right: 2px solid #000000;
-}
-
-.segment-divider:last-child {
-    border-right: none;
-}
-
-.health-row {
-    border-color: rgba(255, 255, 255, 0.4);
-}
-
-.health-fill {
-    background: #ffffff;
-    box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
-}
-
-.bar-row.low .health-fill {
-    background: var(--col-danger);
-    box-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
-    animation: pulseLow 1.5s ease-in-out infinite;
-}
-
-@keyframes pulseLow {
-    0%, 100% { opacity: 0.85; }
-    50% { opacity: 0.55; }
-}
-
-.bar-icon {
-    position: absolute;
-    left: -20px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 14px;
-    height: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0.8;
-}
-
-.bar-icon svg {
-    width: 12px;
-    height: 12px;
-}
-
-.hunger-icon svg {
-    fill: var(--col-hunger);
-}
-
-.thirst-icon svg {
-    fill: var(--col-thirst);
-}
-
-.infection-icon svg {
-    fill: var(--col-infection);
-}
-
-.hunger-row {
-    border-color: rgba(245, 158, 11, 0.4);
-}
-
-.hunger-fill {
-    background: linear-gradient(90deg, #d97706, #f59e0b);
-    box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.4);
-}
-
-.bar-row.hunger-low .hunger-fill {
-    opacity: 0.75;
-    animation: pulseLow 2s ease-in-out infinite;
-}
-
-.thirst-row {
-    border-color: rgba(6, 182, 212, 0.4);
-}
-
-.thirst-fill {
-    background: linear-gradient(90deg, #0891b2, #06b6d4);
-    box-shadow: inset 0 0 10px rgba(6, 182, 212, 0.4);
-}
-
-.bar-row.thirst-low .thirst-fill {
-    opacity: 0.75;
-    animation: pulseLow 2s ease-in-out infinite;
-}
-
-.infection-row {
-    border-color: rgba(34, 197, 94, 0.4);
-}
-
-.infection-fill {
-    background: linear-gradient(90deg, #22c55e, #4ade80);
-    box-shadow: inset 0 0 10px rgba(34, 197, 94, 0.4);
-}
-
-.infection-row.infection-high .infection-fill {
-    background: linear-gradient(90deg, #dc2626, #ef4444);
-    box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
-    opacity: 0.9;
-    animation: pulseLow 1.2s ease-in-out infinite;
-}
-
-.infection-row.infection-mid .infection-fill {
-    background: linear-gradient(90deg, #ca8a04, #eab308);
-    box-shadow: 0 0 6px rgba(234, 179, 8, 0.4);
-    opacity: 0.85;
-}
-
-.infection-row.infection-mid {
-    border-color: rgba(234, 179, 8, 0.4);
-}
-
-.infection-row.infection-high {
-    border-color: rgba(239, 68, 68, 0.5);
-}
-
-.infection-row.infection-high .infection-icon svg {
-    fill: var(--col-danger);
-}
-
-.infection-row.infection-mid .infection-icon svg {
-    fill: #eab308;
-}
-
-.hidden-bar {
-    max-height: 0;
-    overflow: hidden;
-    opacity: 0;
-    border: none;
-    margin: 0;
-    padding: 0;
-    transition: max-height 0.3s ease, opacity 0.3s ease;
-}
-
-.hidden-bar.visible-bar {
-    max-height: 20px;
-    opacity: 1;
-    border: 1px solid rgba(34, 197, 94, 0.4);
-    transition: max-height 0.3s ease, opacity 0.3s ease;
-}
-
-.status-row {
-    display: flex;
-    gap: 12px;
-    margin-top: 12px;
-    align-items: center;
-    min-height: 44px;
-}
-
-.status-icon {
-    --icon-size: 40px;
-    position: relative;
-    width: var(--icon-size);
-    height: var(--icon-size);
-    display: none;
-    color: #ffffff;
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.85));
-}
-
-.status-icon.visible {
-    display: block;
-}
-
-.status-icon svg {
-    width: 100%;
-    height: 100%;
+.hud-shell {
+    padding: 14px 18px;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
     overflow: visible;
 }
 
-.status-icon .status-fill {
+.hud-content {
+    --hud-target-transform: rotateX(8deg) rotateY(-12deg) rotateZ(-1deg);
+    --hud-enter-transform: rotateX(20deg) rotateY(-25deg) rotateZ(-3deg) translateZ(-50px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transform-origin: left bottom;
+    transform: var(--hud-target-transform);
+    transform-style: preserve-3d;
+    transition: transform 0.24s ease;
+}
+
+.hud-content.flat {
+    transform: none !important;
+}
+
+.hud-content.animate-in {
+    animation: hudSlideIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes hudSlideIn {
+    from {
+        opacity: 0;
+        transform: var(--hud-enter-transform);
+    }
+
+    to {
+        opacity: 1;
+        transform: var(--hud-target-transform);
+    }
+}
+
+.hud-row {
+    width: 100%;
+}
+
+.health-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.health-icon {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.health-icon svg {
+    width: 100%;
+    height: 100%;
     fill: currentColor;
-    transition: y 0.45s cubic-bezier(0.4, 0, 0.2, 1), height 0.45s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.status-icon .status-detail {
-    pointer-events: none;
+.health-value {
+    min-width: 36px;
+    font-family: 'Teko', sans-serif;
+    font-size: 22px;
+    line-height: 0.9;
+    font-weight: 700;
+    color: var(--hud-white);
+    font-variant-numeric: tabular-nums;
 }
 
-.status-icon[data-status="infection"]  { color: #34d399; }
-.status-icon[data-status="poison"]     { color: #c084fc; }
-.status-icon[data-status="bleeding"]   { color: #f87171; }
-.status-icon[data-status="sick"]       { color: #fbbf24; }
-.status-icon[data-status="cold"]       { color: #7dd3fc; }
+.health-stack {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
 
-.bar-bg {
+.ammo-row {
     position: absolute;
-    inset: 0;
-    background: transparent;
+    right: 0;
+    bottom: 100%;
+    width: auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    color: var(--hud-white);
+    margin-bottom: 6px;
+}
+
+.weapon-cluster {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.weapon-cluster.hidden {
+    display: none;
+}
+
+.ammo-count {
+    font-family: 'Teko', sans-serif;
+    font-size: 24px;
+    line-height: 0.9;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    color: var(--hud-white);
+    transform-origin: left center;
+    transition: transform 0.1s ease-out, color 0.12s ease-out;
+}
+
+.weapon-silhouette {
+    width: 42px;
+    height: 16px;
+    opacity: 0.92;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.weapon-silhouette svg,
+.weapon-image {
+    width: 100%;
+    height: 100%;
+}
+
+.weapon-silhouette svg {
+    fill: rgba(255, 255, 255, 0.92);
+}
+
+.weapon-image {
+    object-fit: contain;
+    object-position: center right;
+}
+
+.weapon-image.hidden,
+.weapon-silhouette svg.hidden {
+    display: none;
+}
+
+.ammo-row.ammo-pulse .ammo-count {
+    transform: scale(1.04);
+}
+
+.ammo-row.critical .ammo-count {
+    color: #ffdfdf;
+}
+
+.vital-track {
+    position: relative;
+    overflow: hidden;
+    border-radius: 999px;
+}
+
+.health-track {
+    width: 250px;
+    height: 8px;
+    background: var(--hud-track);
+}
+
+.armor-track-shell {
+    width: 250px;
+}
+
+.armor-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(33, 150, 243, 0.18);
+}
+
+.vital-fill,
+.vital-ghost {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0;
+    border-radius: inherit;
+}
+
+.vital-fill {
+    transition: width 0.4s ease-out, background-color 0.2s ease-out;
+}
+
+.vital-ghost {
+    background: rgba(255, 255, 255, 0.3);
+    opacity: 0.3;
+    transition: width 0.8s ease-out 0.2s, opacity 0.8s ease-out;
+}
+
+.health-fill {
+    background: var(--health-color);
+}
+
+.shield-fill {
+    background: var(--shield-color);
+}
+
+.armor-track-shell.recharging .shield-fill {
+    animation: shieldPulse 1s ease-in-out 1;
+}
+
+@keyframes shieldPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+
+.health-row.warning .health-fill {
+    background: var(--health-warning);
+}
+
+.health-row.danger .health-fill {
+    background: var(--health-danger);
+}
+
+.health-row.critical .health-fill {
+    background: var(--health-critical);
+    animation: criticalPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes criticalPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.status-row {
+    display: block;
+}
+
+.utility-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 16px;
+    min-height: 24px;
+    color: rgba(255, 255, 255, 0.86);
+}
+
+.utility-item {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    gap: 5px;
+    min-width: 24px;
+    opacity: 0.9;
+    transition: opacity 0.18s ease, filter 0.18s ease, color 0.18s ease;
+}
+
+.utility-icon {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.utility-icon svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.utility-count {
+    min-width: 8px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+    color: rgba(255, 255, 255, 0.96);
+    font-variant-numeric: tabular-nums;
+}
+
+.utility-infection {
+    color: var(--infection-color);
+}
+
+.utility-poison {
+    color: var(--poison-color);
+}
+
+.utility-bleeding {
+    color: var(--bleeding-color);
+}
+
+.utility-sick {
+    color: var(--sick-color);
+}
+
+.utility-cold {
+    color: var(--cryo-color);
+}
+
+.utility-hunger,
+.utility-thirst {
+    color: rgba(255, 255, 255, 0.88);
+}
+
+.utility-hunger {
+    color: var(--hunger-color);
+    gap: 2px;
+}
+
+.utility-thirst {
+    color: var(--thirst-color);
+    gap: 2px;
+}
+
+.utility-level {
+    width: 34px;
+    height: 4px;
+    overflow: hidden;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.utility-level-fill {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 2px;
+    transition: width 0.3s ease-out, background-color 0.2s ease-out;
+}
+
+.utility-hunger .utility-level-fill {
+    background: var(--hunger-color);
+}
+
+.utility-thirst .utility-level-fill {
+    background: var(--thirst-color);
+}
+
+.utility-item.cooldown {
+    opacity: 0.3;
+    filter: grayscale(1);
+}
+
+.utility-item.warning {
+    color: var(--health-warning);
+}
+
+.utility-item.critical {
+    color: var(--health-critical);
+}
+
+.utility-hunger.warning .utility-level-fill,
+.utility-thirst.warning .utility-level-fill {
+    background: var(--health-warning);
+}
+
+.utility-hunger.critical .utility-level-fill,
+.utility-thirst.critical .utility-level-fill {
+    background: var(--health-critical);
 }
