@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>ZombieRP Loading Screen</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
+        <link href="keks.css" rel="stylesheet" type="text/css" />
+    </head>
+    <body>
+        <div class="backdrop">
+            <div class="backdrop-shadow"></div>
+            <div class="ash-layer"></div>
+            <div class="scanlines"></div>
+
+            <div class="content-shell">
+                <header class="hero">
+                    <div class="hero-copy">
+                        <span class="eyebrow">COREX SURVIVAL NETWORK</span>
+                        <h1>COREX</h1>
+                        <h2>FIVEM ZOMBIE FRAMEWORK</h2>
+                    </div>
+
+                    <div class="hero-alert cut-edge">
+                        <span class="alert-dot"></span>
+                        <span id="statusLabel">Securing quarantine corridor</span>
+                    </div>
+                </header>
+
+                <main class="dashboard">
+                    <section class="intel-panel cut-edge">
+                        <div class="panel-header">
+                            <span>Deployment Intel</span>
+                        </div>
+
+                        <div class="phase-row">
+                            <span class="phase-text" id="phaseText">Initializing outbreak response systems</span>
+                        </div>
+
+                        <div class="loadbar cut-edge">
+                            <div class="thingy"></div>
+                        </div>
+
+                        <div class="progress-meta">
+                            <div class="progress-sector">
+                                <span class="phase-badge" id="phaseBadge">BOOT</span>
+                            </div>
+                            <span class="progress-value" id="progressValue">0%</span>
+                        </div>
+
+                        <p class="logline" id="logLine">Scanning perimeter for infected movement.</p>
+
+                        <div class="tip-grid">
+                            <article class="tip-card cut-edge">
+                                <span class="tip-label">Zone Intel</span>
+                                <strong>Loot fast. Noise kills.</strong>
+                                <p>Hot zones draw infected and hostile survivors. Move, grab, vanish.</p>
+                            </article>
+
+                            <article class="tip-card cut-edge">
+                                <span class="tip-label">Field Rule</span>
+                                <strong>Stay fed. Stay armed.</strong>
+                                <p>Bandages, ammo, water, and fuel matter more than pride out here.</p>
+                            </article>
+
+                            <article class="tip-card cut-edge">
+                                <span class="tip-label">Final Warning</span>
+                                <strong>Darkness belongs to them.</strong>
+                                <p>Night runs bring better loot, worse odds, and almost no mercy.</p>
+                            </article>
+                        </div>
+                    </section>
+
+                    <aside class="side-panel">
+                        <section class="info-card cut-edge">
+                            <span class="card-kicker">Survival Broadcast</span>
+                            <h3>Blood moon rising over dead city.</h3>
+                            <p>Ruins still burn, alarms still echo, and every safe road ends in a bad choice.</p>
+                        </section>
+
+                        <section class="info-card cut-edge">
+                            <span class="card-kicker">Quarantine Orders</span>
+                            <ul class="protocol-list">
+                                <li>Trust cover more than courage.</li>
+                                <li>Keep flashlight use short.</li>
+                                <li>Extraction routes shift fast.</li>
+                            </ul>
+                        </section>
+
+                        <section class="signal-card cut-edge">
+                            <div>
+                                <span class="signal-label">Air Quality</span>
+                                <strong>Toxic Dust</strong>
+                            </div>
+                            <div>
+                                <span class="signal-label">Threat Level</span>
+                                <strong>Crimson</strong>
+                            </div>
+                            <div>
+                                <span class="signal-label">Evac Window</span>
+                                <strong>Unstable</strong>
+                            </div>
+                        </section>
+                    </aside>
+                </main>
+
+                <footer class="footer-strip">
+                    <span>Quarantine Lockdown Active</span>
+                    <span>Stay armed. Stay hidden. Stay alive.</span>
+                </footer>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            var count = 0;
+            var thisCount = 0;
+            var lastLogUpdate = 0;
+            var ambientIndex = 0;
+
+            var progressNode = document.getElementById('progressValue');
+            var phaseBadgeNode = document.getElementById('phaseBadge');
+            var phaseTextNode = document.getElementById('phaseText');
+            var statusNode = document.getElementById('statusLabel');
+            var logNode = document.getElementById('logLine');
+            var barNode = document.querySelector('.thingy');
+
+            var ambientMessages = [
+                'Counting survivors. Checking ammunition reserves.',
+                'Monitoring dead channels for movement near safehouses.',
+                'Reinforcing barricades around quarantine gate.',
+                'Tracking smoke trails beyond extraction corridor.'
+            ];
+
+            var phaseMeta = {
+                INIT_BEFORE_MAP_LOADED: {
+                    badge: 'SECTOR 01',
+                    text: 'Loading outer quarantine perimeter',
+                    status: 'Sweeping ruined streets for entry points'
+                },
+                INIT_AFTER_MAP_LOADED: {
+                    badge: 'SECTOR 02',
+                    text: 'Stabilizing city ruins and key landmarks',
+                    status: 'Securing sightlines across collapse zone'
+                },
+                INIT_SESSION: {
+                    badge: 'SECTOR 03',
+                    text: 'Connecting survivor uplink and field comms',
+                    status: 'Authenticating emergency radio channels'
+                },
+                DATA_FILE: {
+                    badge: 'SECTOR 04',
+                    text: 'Cataloging mission records and outbreak files',
+                    status: 'Decrypting recovered field archives'
+                },
+                LIVE: {
+                    badge: 'ONLINE',
+                    text: 'Final route check before deployment',
+                    status: 'Preparing final insertion packet'
+                }
+            };
+
+            function clamp(value, min, max) {
+                return Math.max(min, Math.min(max, value));
+            }
+
+            function setProgress(value) {
+                var progress = clamp(value || 0, 0, 100);
+
+                barNode.style.width = progress + '%';
+                progressNode.textContent = Math.round(progress) + '%';
+            }
+
+            function setPhase(key) {
+                var phase = phaseMeta[key] || phaseMeta.LIVE;
+
+                phaseBadgeNode.textContent = phase.badge;
+                phaseTextNode.textContent = phase.text;
+                statusNode.textContent = phase.status;
+            }
+
+            function setLogMessage(message) {
+                logNode.textContent = message;
+                lastLogUpdate = Date.now();
+            }
+
+            function rotateAmbientMessage() {
+                if (Date.now() - lastLogUpdate < 3500) {
+                    return;
+                }
+
+                ambientIndex = (ambientIndex + 1) % ambientMessages.length;
+                logNode.textContent = ambientMessages[ambientIndex];
+            }
+
+            setPhase('INIT_BEFORE_MAP_LOADED');
+            setProgress(0);
+            window.setInterval(rotateAmbientMessage, 3000);
+
+            var handlers = {
+                startInitFunctionOrder: function (data) {
+                    count = data.count || 0;
+                    setPhase(data.type);
+                    setLogMessage('Preparing module ' + data.order + ' of ' + count + '.');
+                },
+
+                initFunctionInvoking: function (data) {
+                    var progress = count ? (data.idx / count) * 100 : 0;
+
+                    setPhase(data.type);
+                    setProgress(progress);
+                    setLogMessage('Executing startup routine ' + data.idx + ' of ' + count + '.');
+                },
+
+                startDataFileEntries: function (data) {
+                    count = data.count || 0;
+                    thisCount = 0;
+
+                    setPhase('DATA_FILE');
+                    setLogMessage('Indexing ' + count + ' recovered data files.');
+                },
+
+                performMapLoadFunction: function () {
+                    thisCount += 1;
+
+                    setPhase('DATA_FILE');
+                    setProgress(count ? (thisCount / count) * 100 : 0);
+                    setLogMessage('Streaming sector file ' + thisCount + ' of ' + count + '.');
+                },
+
+                onLogLine: function (data) {
+                    setPhase('LIVE');
+                    setLogMessage(data.message);
+                }
+            };
+
+            window.addEventListener('message', function (event) {
+                (handlers[event.data.eventName] || function () {})(event.data);
+            });
+        </script>
+    </body>
+</html>
