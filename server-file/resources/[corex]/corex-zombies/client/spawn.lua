@@ -15,6 +15,24 @@ local DUMPSTER_MODELS = {
     'prop_dumpster_04a',
 }
 
+local function GetLocalPlayerPed()
+    local ped = PlayerPedId()
+    if not ped or ped == 0 or not DoesEntityExist(ped) then
+        return 0
+    end
+
+    return ped
+end
+
+local function GetLocalPlayerCoords(ped)
+    ped = ped or GetLocalPlayerPed()
+    if not ped or ped == 0 then
+        return nil
+    end
+
+    return GetEntityCoords(ped)
+end
+
 local function Dist2D(a, b)
     local dx = a.x - b.x
     local dy = a.y - b.y
@@ -80,8 +98,8 @@ function ZX.Spawn.ValidateSpawnPosition(coords, options)
     end
 
     local playerCoords = options.playerCoords
-    if not playerCoords and not options.skipDistanceCheck and Corex and Corex.Functions then
-        playerCoords = Corex.Functions.GetCoords()
+    if not playerCoords and not options.skipDistanceCheck then
+        playerCoords = GetLocalPlayerCoords()
     end
 
     if playerCoords and not options.skipDistanceCheck then
@@ -227,7 +245,7 @@ local function CountInTerritory(territory)
     local r2 = territory.radius * territory.radius
     for _, z in ipairs(activeZombies or {}) do
         if not z.isDead and DoesEntityExist(z.entity) then
-            local zc = GetEntityCoords(z.entity)
+            local zc = ZX.GetZombieCoords and ZX.GetZombieCoords(z, false, GetGameTimer()) or GetEntityCoords(z.entity)
             local dx = zc.x - territory.center.x
             local dy = zc.y - territory.center.y
             if (dx * dx + dy * dy) <= r2 then n = n + 1 end
@@ -354,8 +372,8 @@ function ZX.Spawn.DetectSounds()
     local cfg = Config.RPSpawning and Config.RPSpawning.soundAttraction
     if not cfg or not cfg.enabled then return end
 
-    if not Corex then return end
-    local ped = Corex.Functions.GetPed()
+    local ped = GetLocalPlayerPed()
+    if ped == 0 then return end
     if not IsPedShooting(ped) then return end
 
     local now = GetGameTimer()
@@ -380,7 +398,7 @@ function ZX.Spawn.BroadcastSound(soundCoords, range)
     for _, zd in ipairs(activeZombies or {}) do
         if not zd.isDead and zd.state == 'idle_scenario' and DoesEntityExist(zd.entity) then
             if not IsPedDeadOrDying(zd.entity, true) then
-                local zc = GetEntityCoords(zd.entity)
+                local zc = ZX.GetZombieCoords and ZX.GetZombieCoords(zd, false, GetGameTimer()) or GetEntityCoords(zd.entity)
                 local dx = zc.x - soundCoords.x
                 local dy = zc.y - soundCoords.y
                 local dz = zc.z - soundCoords.z

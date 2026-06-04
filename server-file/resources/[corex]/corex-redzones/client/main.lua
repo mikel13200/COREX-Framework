@@ -16,6 +16,33 @@ local CRATE_GROUND_RESNAP_MS = Config.CrateGroundResnapMs or 2000
 local ZONE_EXIT_GRACE_MS = Config.ZoneExitGraceMs or 2500
 local zoneExitStartedAt = nil
 
+local function GetLocalPlayerPed()
+    local ped = PlayerPedId()
+    if not ped or ped == 0 or not DoesEntityExist(ped) then
+        return 0
+    end
+
+    return ped
+end
+
+local function GetLocalPlayerCoords(ped)
+    ped = ped or GetLocalPlayerPed()
+    if ped == 0 then
+        return nil
+    end
+
+    return GetEntityCoords(ped)
+end
+
+local function GetLocalHealth(ped)
+    ped = ped or GetLocalPlayerPed()
+    if ped == 0 then
+        return 0
+    end
+
+    return math.max(0, math.min(100, GetEntityHealth(ped) - 100))
+end
+
 local function Debug(level, msg)
     if not Config.Debug and level ~= 'Error' then return end
     local colors = { Error = '^1', Warn = '^3', Info = '^2', Verbose = '^5' }
@@ -42,7 +69,8 @@ end
 
 local function OnSearchCrate(entity, data)
     if not Corex then return end
-    if Corex.Functions.IsDead(Corex.Functions.GetPed()) then return end
+    local ped = GetLocalPlayerPed()
+    if ped == 0 or IsEntityDead(ped) then return end
     if not data or type(data.crateId) ~= 'string' then return end
     TriggerServerEvent('corex-loot:server:requestContainer', data.crateId)
 end
@@ -527,10 +555,12 @@ end
 
 local function ApplyHealthDrain()
     if not Corex then return end
-    local health = Corex.Functions.GetHealth()
+    local ped = GetLocalPlayerPed()
+    if ped == 0 then return end
+    local health = GetLocalHealth(ped)
     if health <= 0 then return end
     local newHealth = math.max(1, health - Config.HealthDrain.amountPerTick)
-    Corex.Functions.SetHealth(newHealth)
+    SetEntityHealth(ped, newHealth + 100)
 end
 
 CreateThread(function()
@@ -569,7 +599,8 @@ CreateThread(function()
     while true do
         Wait(Config.CheckInterval)
         if manifest and Corex then
-            local coords = Corex.Functions.GetCoords()
+            local coords = GetLocalPlayerCoords()
+            if not coords then goto continue end
             local zone = nil
 
             if currentZone and IsCoordsInZone(coords, currentZone, ZONE_EXIT_BUFFER) then
@@ -593,6 +624,7 @@ CreateThread(function()
                 end
             end
         end
+        ::continue::
     end
 end)
 

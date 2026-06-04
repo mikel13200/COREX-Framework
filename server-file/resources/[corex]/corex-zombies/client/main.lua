@@ -73,6 +73,32 @@ local currentToxicExposure = 0.0
 local renderedToxicExposure = 0.0
 local lastToxicRenderTick = nil
 
+local perfCfg = Config.Performance or {}
+local ZOMBIE_COORD_CACHE_MS = math.max(50, tonumber(perfCfg.ZombieCoordCacheMs) or 300)
+local SAFE_ZONE_CACHE_MS = math.max(1000, tonumber(perfCfg.SafeZoneCacheMs) or 5000)
+local PLAYER_CACHE_INTERVAL_MS = math.max(100, tonumber(perfCfg.PlayerCacheIntervalMs) or 750)
+local EFFECTS_SUMMARY_INTERVAL_MS = math.max(100, tonumber(perfCfg.EffectsSummaryIntervalMs) or 250)
+local IDLE_LOOP_SLEEP_MS = math.max(250, tonumber(perfCfg.IdleLoopSleepMs) or 1000)
+local AI_NEAR_THINK_DISTANCE = math.max(10.0, tonumber(perfCfg.AiNearThinkDistance) or 45.0)
+local AI_FAR_THINK_MS = math.max(200, tonumber(perfCfg.AiFarThinkMs) or 900)
+local RUNNER_ASSIST_DISTANCE = math.max(5.0, tonumber(perfCfg.RunnerAssistDistance) or 40.0)
+local RUNNER_IDLE_SLEEP_MS = math.max(100, tonumber(perfCfg.RunnerIdleSleepMs) or 250)
+
+local safeZonesCache = {}
+local safeZonesCacheExpiresAt = 0
+local playerTargetCache = {
+    expiresAt = 0,
+    entries = {},
+}
+local zombieProximitySummary = {
+    updatedAt = 0,
+    activeCount = 0,
+    nearbyCount = 0,
+    heartbeatCount = 0,
+    nearestDistSq = math.huge,
+    hasSpecial = false,
+}
+
 local function DLog(msg)
     if Config.Debug then
         print(('^5[COREX-ZOMBIES] %s^0'):format(msg))
@@ -83,6 +109,178 @@ local function DAnim(msg)
     if Config.DebugAnimations then
         print(('^3[COREX-ZOMBIES·ANIM] %s^0'):format(msg))
     end
+end
+
+local function GetLocalPlayerPed()
+    local ped = PlayerPedId()
+    if not ped or ped == 0 or not DoesEntityExist(ped) then
+        return 0
+    end
+
+    return ped
+end
+
+local function GetLocalPlayerCoords(ped)
+    ped = ped or GetLocalPlayerPed()
+    if not ped or ped == 0 then
+        return nil
+    end
+
+    return GetEntityCoords(ped)
+end
+
+local function RefreshSafeZoneCache(force)
+    local now = GetGameTimer()
+    if not force and now < safeZonesCacheExpiresAt then
+        return safeZonesCache
+    end
+
+    local success, zones = pcall(function()
+        return exports['corex-zones']:GetSafeZones()
+    end)
+
+    safeZonesCache = success and type(zones) == 'table' and zones or {}
+    safeZonesCacheExpiresAt = now + SAFE_ZONE_CACHE_MS
+    return safeZonesCache
+end
+
+local function GetZombieCoordsCached(zombieData, forceRefresh, now)
+    if not zombieData or not zombieData.entity or zombieData.entity == 0 or not DoesEntityExist(zombieData.entity) then
+        return nil
+    end
+
+    now = now or GetGameTimer()
+    if forceRefresh or not zombieData.coords or now >= (zombieData.coordCacheExpiresAt or 0) then
+        zombieData.coords = GetEntityCoords(zombieData.entity)
+        zombieData.coordCacheExpiresAt = now + ZOMBIE_COORD_CACHE_MS
+    end
+
+    return zombieData.coords
+end
+
+ZX.GetZombieCoords = GetZombieCoordsCached
+ZX.GetLocalPlayerCoords = GetLocalPlayerCoords
+
+local function CountZombiesNearCached(coords, radius, now)
+    if not coords or not radius then return 0 end
+
+    now = now or GetGameTimer()
+    local r2 = radius * radius
+    local n = 0
+
+    for _, z in ipairs(activeZombies) do
+        if not z.isDead and DoesEntityExist(z.entity) then
+            local zc = GetZombieCoordsCached(z, false, now)
+            if zc then
+                local dx, dy, dz = zc.x - coords.x, zc.y - coords.y, zc.z - coords.z
+                if (dx * dx + dy * dy + dz * dz) <= r2 then
+                    n = n + 1
+                end
+            end
+        end
+    end
+
+    return n
+end
+
+local function RefreshPlayerTargetCache(localPlayerPed, localPlayerCoords, engagementRange, now)
+    now = now or GetGameTimer()
+    if not localPlayerCoords then
+        playerTargetCache.entries = {}
+        playerTargetCache.expiresAt = now + PLAYER_CACHE_INTERVAL_MS
+        return playerTargetCache.entries
+    end
+
+    local r = (engagementRange or ((Config.AI and Config.AI.engagementRange) or 120.0)) + 10.0
+    local r2 = r * r
+    local entries = {}
+
+    for _, pid in ipairs(GetActivePlayers()) do
+        local ped = GetPlayerPed(pid)
+        if ped and ped ~= 0 and DoesEntityExist(ped) and not IsPedDeadOrDying(ped, true) then
+            local pc = GetEntityCoords(ped)
+            local dx, dy, dz = pc.x - localPlayerCoords.x, pc.y - localPlayerCoords.y, pc.z - localPlayerCoords.z
+            if (dx * dx + dy * dy + dz * dz) <= r2 then
+                entries[#entries + 1] = { ped = ped, coords = pc, isLocal = (ped == localPlayerPed) }
+            end
+        end
+    end
+
+    playerTargetCache.entries = entries
+    playerTargetCache.expiresAt = now + PLAYER_CACHE_INTERVAL_MS
+    return entries
+end
+
+local function GetPlayerTargetCache(localPlayerPed, localPlayerCoords, engagementRange, now)
+    now = now or GetGameTimer()
+    if now >= (playerTargetCache.expiresAt or 0) then
+        return RefreshPlayerTargetCache(localPlayerPed, localPlayerCoords, engagementRange, now)
+    end
+
+    return playerTargetCache.entries
+end
+
+local function UpdateZombieProximitySummary(playerCoords, now)
+    now = now or GetGameTimer()
+    if not playerCoords or now < (zombieProximitySummary.updatedAt or 0) then
+        return zombieProximitySummary
+    end
+
+    local fearCfg = Config.Fear or {}
+    local heartbeatRadius = tonumber(fearCfg.heartbeatRadius) or 20.0
+    local heartbeatRadiusSq = heartbeatRadius * heartbeatRadius
+    local effectRadius = math.max(
+        tonumber(fearCfg.vignetteMaxDist) or 30.0,
+        tonumber(fearCfg.lightDrawMaxDist) or 40.0,
+        tonumber(fearCfg.eyeGlowMaxDist) or 25.0
+    )
+    local effectRadiusSq = effectRadius * effectRadius
+    local lightMap = fearCfg.lightDraw or {}
+
+    local activeCount = 0
+    local nearbyCount = 0
+    local heartbeatCount = 0
+    local nearestDistSq = math.huge
+    local hasSpecial = false
+
+    for _, z in ipairs(activeZombies) do
+        if not z.isDead and DoesEntityExist(z.entity) then
+            activeCount = activeCount + 1
+            local zc = GetZombieCoordsCached(z, false, now)
+            if zc then
+                local dx, dy, dz = zc.x - playerCoords.x, zc.y - playerCoords.y, zc.z - playerCoords.z
+                local d2 = dx * dx + dy * dy + dz * dz
+                if d2 < nearestDistSq then
+                    nearestDistSq = d2
+                end
+                if d2 <= effectRadiusSq then
+                    nearbyCount = nearbyCount + 1
+                    local td = z.typeData
+                    if td and td.lightColor and lightMap[td.id or ''] then
+                        hasSpecial = true
+                    end
+                end
+                if d2 <= heartbeatRadiusSq then
+                    heartbeatCount = heartbeatCount + 1
+                end
+            end
+        end
+    end
+
+    zombieProximitySummary = {
+        updatedAt = now + EFFECTS_SUMMARY_INTERVAL_MS,
+        activeCount = activeCount,
+        nearbyCount = nearbyCount,
+        heartbeatCount = heartbeatCount,
+        nearestDistSq = nearestDistSq,
+        hasSpecial = hasSpecial,
+    }
+
+    return zombieProximitySummary
+end
+
+ZX.GetZombieProximitySummary = function()
+    return zombieProximitySummary
 end
 
 local function GetZombieTypeDataById(typeId)
@@ -333,18 +531,16 @@ local function PickZombieType(context)
 end
 
 local function GetSafeZones()
-    local success, zones = pcall(function()
-        return exports['corex-zones']:GetSafeZones()
-    end)
-    if success and zones then return zones end
-    return {}
+    return RefreshSafeZoneCache(false)
 end
 
 function IsNearSafeZone(coords)
     local safeZones = GetSafeZones()
     local buffer = Config.SafeZoneBuffer or 20.0
     for _, zone in ipairs(safeZones) do
-        if GetDistance(coords, zone.coords) <= (zone.radius + buffer) then
+        local dx = coords.x - zone.coords.x
+        local dy = coords.y - zone.coords.y
+        if (dx * dx + dy * dy) <= ((zone.radius + buffer) * (zone.radius + buffer)) then
             return true
         end
     end
@@ -354,7 +550,8 @@ end
 local function GetRandomSpawnPosition()
     if not isReady then return nil end
 
-    local playerCoords = Corex.Functions.GetCoords()
+    local playerCoords = GetLocalPlayerCoords()
+    if not playerCoords then return nil end
     local minDist = Config.Spawning.minDistance
     local maxDist = Config.Spawning.maxDistance
 
@@ -641,8 +838,8 @@ local function SpawnZombie(forcedCoords, forcedType, spawnOptions)
 
     spawnOptions = spawnOptions or {}
     local coords = forcedCoords
+    local playerCoords = forcedCoords and nil or GetLocalPlayerCoords(_playerPed)
     if not coords and ZX.Spawn and ZX.Spawn.GetNextSpawnPosition then
-        local playerCoords = Corex.Functions.GetCoords()
         coords = ZX.Spawn.GetNextSpawnPosition(playerCoords)
     end
     if not coords then
@@ -654,7 +851,7 @@ local function SpawnZombie(forcedCoords, forcedType, spawnOptions)
 
     if ZX.Spawn and ZX.Spawn.ValidateSpawnPosition then
         coords = ZX.Spawn.ValidateSpawnPosition(coords, {
-            playerCoords = forcedCoords and nil or Corex.Functions.GetCoords(),
+            playerCoords = playerCoords,
             skipDistanceCheck = forcedCoords ~= nil,
             requireOffRoad = false
         })
@@ -739,7 +936,7 @@ local function SpawnZombie(forcedCoords, forcedType, spawnOptions)
 
     if not isSpawning then
         ClearPedTasks(zombie)
-        local localPed = Corex and Corex.Functions and Corex.Functions.GetPed and Corex.Functions.GetPed() or 0
+        local localPed = GetLocalPlayerPed()
         if localPed and localPed ~= 0 and DoesEntityExist(localPed) and not IsPedDeadOrDying(localPed, true) then
             TaskGoToEntity(zombie, localPed, -1, 0.5, 1.5, 1077936128, 0.0)
             SetPedKeepTask(zombie, true)
@@ -758,11 +955,13 @@ local function SpawnZombie(forcedCoords, forcedType, spawnOptions)
         typeData = typeData,
         spawnTime = now,
         coords = coords,
+        coordCacheExpiresAt = now + ZOMBIE_COORD_CACHE_MS,
         isDead = false,
         state = isSpawning and 'spawning' or 'idle',
         lastAttack = 0,
         lastTaskUpdate = 0,
         lastBrainTick = 0,
+        lastAiUpdate = 0,
         lastPosition = coords,
         lastPositionTime = now,
         stuckSince = 0,
@@ -905,14 +1104,18 @@ local function ResolveDynamicBudget(playerCoords)
     local cfg = Config.PopulationScaling
     if not cfg then return Config.PopulationBudget or 24 end
 
-    -- Distance-to-safe-zone-boundary. Fallback big number if export missing.
     local dist = 99999.0
-    local ok, res = pcall(function()
-        return exports['corex-zones']:GetSafeZoneDistance(playerCoords)
-    end)
-    if ok and type(res) == 'number' then dist = res end
+    local zones = GetSafeZones()
+    for _, zone in ipairs(zones) do
+        local dx = playerCoords.x - zone.coords.x
+        local dy = playerCoords.y - zone.coords.y
+        local dz = playerCoords.z - zone.coords.z
+        local zoneDist = math.sqrt(dx * dx + dy * dy + dz * dz) - (zone.radius or 0.0)
+        if zoneDist < dist then
+            dist = zoneDist
+        end
+    end
 
-    -- Pick first band whose maxDist >= dist (wilderness band is 99999).
     local mult = 1.0
     if cfg.bands then
         for _, band in ipairs(cfg.bands) do
@@ -938,19 +1141,7 @@ end
 -- Count live zombies within `radius` of coords. Used for swarm damage bonus,
 -- heartbeat audio gating, etc. Squared-distance comparison for perf.
 function CountZombiesNear(coords, radius)
-    if not coords or not radius then return 0 end
-    local r2 = radius * radius
-    local n = 0
-    for _, z in ipairs(activeZombies) do
-        if not z.isDead and DoesEntityExist(z.entity) then
-            local zc = GetEntityCoords(z.entity)
-            local dx, dy, dz = zc.x - coords.x, zc.y - coords.y, zc.z - coords.z
-            if (dx*dx + dy*dy + dz*dz) <= r2 then
-                n = n + 1
-            end
-        end
-    end
-    return n
+    return CountZombiesNearCached(coords, radius, GetGameTimer())
 end
 
 local function IssueChaseTask(zombie, playerPed, chaseSpeed, typeData)
@@ -983,15 +1174,12 @@ end
 -- much more likely to be picked, but others still get chances — prevents
 -- kiting one player while others are ignored.
 local function BuildPlayerCache(localPlayerPed)
-    local cache = {}
-    for _, pid in ipairs(GetActivePlayers()) do
-        local ped = GetPlayerPed(pid)
-        if ped and ped ~= 0 and DoesEntityExist(ped) and not IsPedDeadOrDying(ped, true) then
-            local pc = GetEntityCoords(ped)
-            cache[#cache + 1] = { ped = ped, coords = pc, isLocal = (ped == localPlayerPed) }
-        end
+    local localPlayerCoords = GetLocalPlayerCoords(localPlayerPed)
+    if not localPlayerCoords then
+        return {}
     end
-    return cache
+
+    return GetPlayerTargetCache(localPlayerPed, localPlayerCoords, (Config.AI and Config.AI.engagementRange) or 120.0, GetGameTimer())
 end
 
 local function PickTarget(zombieCoords, engagementRange, playerCache, localPlayerPed, localPlayerCoords)
@@ -1094,11 +1282,12 @@ local function UpdateZombieAI(zombieData, playerPed, localPlayerCoords, now, pla
         return
     elseif zombieData.state == 'downed' then
         zombieData.state = 'idle'
-        zombieData.lastPosition = GetEntityCoords(zombie)
+        zombieData.lastPosition = GetZombieCoordsCached(zombieData, true, now)
         zombieData.lastPositionTime = now
     end
 
-    local zombieCoords = GetEntityCoords(zombie)
+    local zombieCoords = GetZombieCoordsCached(zombieData, true, now)
+    if not zombieCoords then return end
     local engagementRange = (Config.AI and Config.AI.engagementRange) or 80.0
 
     -- Multi-player target pick: closest-weighted random across nearby peds.
@@ -1257,19 +1446,23 @@ end
 local function StartGrab(zombieEntity)
     if not CanGrabPlayer(zombieEntity) then return end
 
+    local playerPed = GetLocalPlayerPed()
+    if playerPed == 0 then return end
+
     isGrabbed = true
     grabbingZombie = zombieEntity
     escapeProgress = 0
     grabDamageTimer = GetGameTimer()
 
-    local playerPed = Corex.Functions.GetPed()
     ClearPedTasks(zombieEntity)
     ClearPedTasksImmediately(playerPed)
 
     local zombieCoords = GetEntityCoords(zombieEntity)
-    local playerCoords = Corex.Functions.GetCoords()
-    local heading = GetHeadingFromVector_2d(playerCoords.x - zombieCoords.x, playerCoords.y - zombieCoords.y)
-    SetEntityHeading(zombieEntity, heading)
+    local playerCoords = GetLocalPlayerCoords(playerPed)
+    if playerCoords then
+        local heading = GetHeadingFromVector_2d(playerCoords.x - zombieCoords.x, playerCoords.y - zombieCoords.y)
+        SetEntityHeading(zombieEntity, heading)
+    end
 
     RequestAnimDictSafe('melee@unarmed@streamed_core_fps')
     TaskPlayAnim(zombieEntity, 'melee@unarmed@streamed_core_fps', 'ground_attack_on_top', 3.0, -3.0, -1, 49, 0, false, false, false)
@@ -1284,10 +1477,12 @@ end
 local function EndGrab(escaped)
     if not isGrabbed then return end
     local grabConfig = GetGrabConfig()
-    local playerPed = Corex.Functions.GetPed()
+    local playerPed = GetLocalPlayerPed()
 
-    FreezeEntityPosition(playerPed, false)
-    ClearPedTasksImmediately(playerPed)
+    if playerPed ~= 0 then
+        FreezeEntityPosition(playerPed, false)
+        ClearPedTasksImmediately(playerPed)
+    end
 
     if DoesEntityExist(grabbingZombie) then
         ClearPedTasks(grabbingZombie)
@@ -1301,14 +1496,16 @@ local function EndGrab(escaped)
         end
 
         if escaped then
-            local playerCoords = Corex.Functions.GetCoords()
-            local pushDir = GetEntityForwardVector(playerPed)
-            local pushX = playerCoords.x - pushDir.x * 2.0
-            local pushY = playerCoords.y - pushDir.y * 2.0
-            local pushZ = playerCoords.z
-            local found, gz = GetGroundZFor_3dCoord(pushX, pushY, pushZ + 20.0, false)
-            if found then pushZ = gz end
-            SetEntityCoords(grabbingZombie, pushX, pushY, pushZ, false, false, false, false)
+            local playerCoords = GetLocalPlayerCoords(playerPed)
+            if playerCoords then
+                local pushDir = GetEntityForwardVector(playerPed)
+                local pushX = playerCoords.x - pushDir.x * 2.0
+                local pushY = playerCoords.y - pushDir.y * 2.0
+                local pushZ = playerCoords.z
+                local found, gz = GetGroundZFor_3dCoord(pushX, pushY, pushZ + 20.0, false)
+                if found then pushZ = gz end
+                SetEntityCoords(grabbingZombie, pushX, pushY, pushZ, false, false, false, false)
+            end
             SetPedToRagdoll(grabbingZombie, 1500, 1500, 0, false, false, false)
         end
     end
@@ -1339,7 +1536,11 @@ local function ApplyGrabDamage()
     local currentTime = GetGameTimer()
     if currentTime - grabDamageTimer >= grabConfig.grabDamageInterval then
         grabDamageTimer = currentTime
-        local playerPed = Corex.Functions.GetPed()
+        local playerPed = GetLocalPlayerPed()
+        if playerPed == 0 then
+            EndGrab(false)
+            return
+        end
         ApplyDamageToPed(playerPed, grabConfig.grabDamage, false)
         TriggerEvent('corex-survival:client:zombieHit', grabConfig.grabDamage, 'grab')
         if GetEntityHealth(playerPed) <= 100 then
@@ -1425,7 +1626,10 @@ local function ProcessToxicAura(playerPed, playerCoords, now)
         local typeData = zombieData.typeData
         if typeData and typeData.aura then
             if DoesEntityExist(zombieData.entity) and not IsPedDeadOrDying(zombieData.entity, true) then
-                local zCoords = GetEntityCoords(zombieData.entity)
+                local zCoords = GetZombieCoordsCached(zombieData, false, now)
+                if not zCoords then
+                    goto continueAura
+                end
                 local dx = zCoords.x - playerCoords.x
                 local dy = zCoords.y - playerCoords.y
                 local dz = zCoords.z - playerCoords.z
@@ -1440,6 +1644,7 @@ local function ProcessToxicAura(playerPed, playerCoords, now)
                 end
             end
         end
+        ::continueAura::
     end
 
     if insideAura and closestZombie then
@@ -1553,7 +1758,8 @@ CreateThread(function()
         Wait(Config.Spawning.spawnInterval or 5000)
         if not Config.Spawning.enabled then goto continue end
 
-        local playerCoords = Corex.Functions.GetCoords()
+        local playerCoords = GetLocalPlayerCoords()
+        if not playerCoords then goto continue end
         if IsInsideSharedSuppressionZone(playerCoords) then
             goto continue
         end
@@ -1593,13 +1799,47 @@ CreateThread(function()
     while not isReady do Wait(500) end
 
     while true do
-        Wait(50)
-        local playerPed = Corex.Functions.GetPed()
-        if not playerPed or playerPed == 0 or IsPedDeadOrDying(playerPed, true) then goto runnerContinue end
-        local playerCoords = Corex.Functions.GetCoords()
+        if #activeZombies == 0 then
+            Wait(IDLE_LOOP_SLEEP_MS)
+            goto runnerContinue
+        end
+
+        local playerPed = GetLocalPlayerPed()
+        if not playerPed or playerPed == 0 or IsPedDeadOrDying(playerPed, true) then
+            Wait(RUNNER_IDLE_SLEEP_MS)
+            goto runnerContinue
+        end
+        local playerCoords = GetLocalPlayerCoords(playerPed)
+        if not playerCoords then
+            Wait(RUNNER_IDLE_SLEEP_MS)
+            goto runnerContinue
+        end
+
+        local hasActiveRunner = false
+        local runnerAssistDistanceSq = RUNNER_ASSIST_DISTANCE * RUNNER_ASSIST_DISTANCE
+        local now = GetGameTimer()
 
         for _, z in ipairs(activeZombies) do
             if not z.isDead and z.typeData and z.typeData.id == 'runner' and DoesEntityExist(z.entity) and not z.isSpawning then
+                local cachedCoords = GetZombieCoordsCached(z, false, now)
+                if not cachedCoords then
+                    goto continueRunner
+                end
+
+                local dx = playerCoords.x - cachedCoords.x
+                local dy = playerCoords.y - cachedCoords.y
+                local dz = playerCoords.z - cachedCoords.z
+                local distSq = dx * dx + dy * dy + dz * dz
+                if z.attackPhase == 'none' and distSq > runnerAssistDistanceSq then
+                    goto continueRunner
+                end
+
+                hasActiveRunner = true
+                local zc = GetZombieCoordsCached(z, true, now)
+                if not zc then
+                    goto continueRunner
+                end
+
                 UpdateZombieDamageState(z, z.entity)
 
                 if IsZombieMovementBlocked(z.entity) then
@@ -1609,9 +1849,8 @@ CreateThread(function()
 
                 local phase = z.attackPhase
                 if phase == 'none' then
-                    local zc = GetEntityCoords(z.entity)
-                    local dx = playerCoords.x - zc.x
-                    local dy = playerCoords.y - zc.y
+                    dx = playerCoords.x - zc.x
+                    dy = playerCoords.y - zc.y
                     local d = math.sqrt(dx * dx + dy * dy)
                     if d > 2.5 then
                         local force = 6.0
@@ -1624,6 +1863,7 @@ CreateThread(function()
             ::continueRunner::
         end
 
+        Wait(hasActiveRunner and 50 or RUNNER_IDLE_SLEEP_MS)
         ::runnerContinue::
     end
 end)
@@ -1632,20 +1872,60 @@ CreateThread(function()
     while not isReady do Wait(500) end
 
     while true do
-        Wait(200)
+        if #activeZombies == 0 then
+            Wait(IDLE_LOOP_SLEEP_MS)
+            goto aiContinue
+        end
 
-        local playerPed = Corex.Functions.GetPed()
-        local playerCoords = Corex.Functions.GetCoords()
+        local playerPed = GetLocalPlayerPed()
+        local playerCoords = GetLocalPlayerCoords(playerPed)
+        if not playerCoords then
+            Wait(IDLE_LOOP_SLEEP_MS)
+            goto aiContinue
+        end
+
         local now = GetGameTimer()
-        local playerCache = BuildPlayerCache(playerPed)
+        local engagementRange = (Config.AI and Config.AI.engagementRange) or 120.0
+        local playerCache = GetPlayerTargetCache(playerPed, playerCoords, engagementRange, now)
+        local nearThinkDistanceSq = AI_NEAR_THINK_DISTANCE * AI_NEAR_THINK_DISTANCE
+        local activeThinkMs = math.max(150, tonumber(Config.AI and Config.AI.brainTickMs) or 500)
+        local processed = 0
 
         for _, zombieData in ipairs(activeZombies) do
             if DoesEntityExist(zombieData.entity) and not zombieData.isDead then
-                UpdateZombieAI(zombieData, playerPed, playerCoords, now, playerCache)
+                local thinkInterval = AI_FAR_THINK_MS
+                local cachedCoords = GetZombieCoordsCached(zombieData, false, now)
+
+                if zombieData.state == 'attacking'
+                    or zombieData.state == 'combat'
+                    or zombieData.attackPhase ~= 'none'
+                    or zombieData.isSpawning
+                then
+                    thinkInterval = activeThinkMs
+                elseif cachedCoords then
+                    local dx = cachedCoords.x - playerCoords.x
+                    local dy = cachedCoords.y - playerCoords.y
+                    local dz = cachedCoords.z - playerCoords.z
+                    if (dx * dx + dy * dy + dz * dz) <= nearThinkDistanceSq then
+                        thinkInterval = activeThinkMs
+                    end
+                end
+
+                if now - (zombieData.lastAiUpdate or 0) >= thinkInterval then
+                    zombieData.lastAiUpdate = now
+                    UpdateZombieAI(zombieData, playerPed, playerCoords, now, playerCache)
+                    processed = processed + 1
+                end
             end
         end
 
-        ProcessToxicAura(playerPed, playerCoords, now)
+        local summary = UpdateZombieProximitySummary(playerCoords, now)
+        if summary.nearbyCount > 0 or currentToxicExposure > 0 or renderedToxicExposure > 0.01 then
+            ProcessToxicAura(playerPed, playerCoords, now)
+        end
+
+        Wait(processed > 0 and 200 or RUNNER_IDLE_SLEEP_MS)
+        ::aiContinue::
     end
 end)
 
@@ -1667,8 +1947,15 @@ CreateThread(function()
     while not isReady do Wait(500) end
 
     while true do
+        if #activeZombies == 0 then
+            Wait(IDLE_LOOP_SLEEP_MS)
+            goto cleanupContinue
+        end
+
         Wait(1000)
-        local playerCoords = Corex.Functions.GetCoords()
+        local now = GetGameTimer()
+        local playerCoords = GetLocalPlayerCoords()
+        if not playerCoords then goto cleanupContinue end
 
         for i = #activeZombies, 1, -1 do
             local zombieData = activeZombies[i]
@@ -1678,7 +1965,11 @@ CreateThread(function()
                 goto continue
             end
 
-            local zombieCoords = GetEntityCoords(zombieData.entity)
+            local zombieCoords = GetZombieCoordsCached(zombieData, true, now)
+            if not zombieCoords then
+                CleanupZombie(i)
+                goto continue
+            end
 
             if not zombieData.sharedId and IsNearSafeZone(zombieCoords) then
                 CleanupZombie(i)
@@ -1709,6 +2000,7 @@ CreateThread(function()
 
             ::continue::
         end
+        ::cleanupContinue::
     end
 end)
 
@@ -1727,10 +2019,15 @@ CreateThread(function()
             goto continue
         end
 
-        local playerCoords = Corex.Functions.GetCoords()
+        local playerCoords = GetLocalPlayerCoords()
+        if not playerCoords then goto continue end
+        local now = GetGameTimer()
         for _, zombieData in ipairs(activeZombies) do
             if DoesEntityExist(zombieData.entity) and not IsPedDeadOrDying(zombieData.entity, true) then
-                local zombieCoords = GetEntityCoords(zombieData.entity)
+                local zombieCoords = GetZombieCoordsCached(zombieData, false, now)
+                if not zombieCoords then
+                    goto continueGrabCheck
+                end
                 local distance = GetDistance(zombieCoords, playerCoords)
 
                 if distance <= grabConfig.grabDistance and CanGrabPlayer(zombieData.entity) then
@@ -1742,6 +2039,7 @@ CreateThread(function()
                     end
                 end
             end
+            ::continueGrabCheck::
         end
 
         ::continue::
@@ -1761,7 +2059,8 @@ CreateThread(function()
         end
 
         if isGrabbed then
-            if IsPedDeadOrDying(Corex.Functions.GetPed(), true) then
+            local playerPed = GetLocalPlayerPed()
+            if playerPed == 0 or IsPedDeadOrDying(playerPed, true) then
                 EndGrab(false)
             else
                 ProcessEscapeInput()

@@ -8,6 +8,7 @@ author 'ABUGIZA'
 version '2.0.0'
 
 shared_scripts {
+    '@ox_lib/init.lua',
     'config.lua',
     'shared/debug.lua',
     'shared/utils.lua',
@@ -32,6 +33,10 @@ ui_page 'html/interact.html'
 
 files {
     'html/interact.html'
+}
+
+dependencies {
+    'ox_lib'
 }
 
 server_exports {

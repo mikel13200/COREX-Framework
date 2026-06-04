@@ -71,6 +71,19 @@ Config.Sync = {
     SharedZoneSuppressionBuffer = 45.0,
 }
 
+Config.Performance = {
+    ZombieCoordCacheMs = 300,
+    SafeZoneCacheMs = 5000,
+    PlayerCacheIntervalMs = 750,
+    EffectsSummaryIntervalMs = 250,
+    IdleLoopSleepMs = 1000,
+    AiNearThinkDistance = 45.0,
+    AiFarThinkMs = 900,
+    RunnerAssistDistance = 40.0,
+    RunnerIdleSleepMs = 250,
+    EffectRenderIntervalMs = 33,
+}
+
 -- ════════════════════════════════════════════════════════════════
 -- Population baseline (ResolveDynamicBudget scales this by distance
 -- from safe zone, time of day, weather — see PopulationScaling).
@@ -508,7 +521,7 @@ Config.Horde = {
 Config.Fear = {
     -- Master toggle for the red fullscreen fear overlay.
     fearVignetteEnabled = false,
-    renderWaitMs = 0,
+    renderWaitMs = 33,
 
     -- Screen vignette that intensifies as zombies get close.
     -- Distance maps linearly: vignetteMaxDist → 0 alpha,

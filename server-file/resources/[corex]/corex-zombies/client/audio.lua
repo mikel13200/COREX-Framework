@@ -16,6 +16,15 @@ local function Cfg() return (Config and Config.AudioBindings) or {} end
 
 local lastHeartbeatAt = 0
 
+local function GetLocalPlayerCoords()
+    local ped = PlayerPedId()
+    if not ped or ped == 0 or not DoesEntityExist(ped) then
+        return nil
+    end
+
+    return GetEntityCoords(ped)
+end
+
 local TYPE_SOUNDS = {
     brute = { name = 'Explosion_1', set = 'HD_LIFE_SOUNDSET' },
     electric = { name = 'Spark_1', set = 'GTAO_FM_Events_Soundset' },
@@ -106,7 +115,8 @@ CreateThread(function()
         if not moan then goto continue end
         if not activeZombies or #activeZombies == 0 then goto continue end
 
-        local pc = Corex.Functions.GetCoords()
+        local pc = GetLocalPlayerCoords()
+        if not pc then goto continue end
         local now = GetGameTimer()
         local maxRange2 = (moan.maxRange or 30.0) ^ 2
 
@@ -119,7 +129,7 @@ CreateThread(function()
                 -- intent with a civilian scenario (WORLD_HUMAN_BUM_STANDING)
                 -- and make the zombie stand around like an NPC.
                 if z.state == 'idle_scenario' and now >= (z.nextMoanAt or 0) then
-                    local zc = GetEntityCoords(z.entity)
+                    local zc = ZX.GetZombieCoords and ZX.GetZombieCoords(z, false, now) or GetEntityCoords(z.entity)
                     local dx, dy, dz = zc.x - pc.x, zc.y - pc.y, zc.z - pc.z
                     if (dx*dx + dy*dy + dz*dz) <= maxRange2 then
                         -- Ped is already in a scenario (set by main.lua

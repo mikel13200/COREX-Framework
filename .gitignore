@@ -20,6 +20,7 @@ server-file/.replxx_history
 # Sensitive config (use server.cfg.example as template)
 server-file/server.cfg
 server-file/server.cfg.bkp
+server-file/server.cfg.example
 
 # System files
 .DS_Store

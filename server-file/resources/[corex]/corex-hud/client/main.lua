@@ -28,6 +28,33 @@ local hud3DEnabled = Config.Enable3D
 local minimapShown = Config.ShowMinimap
 local shouldHideHud
 
+local function GetLocalPlayerPed()
+    local ped = PlayerPedId()
+    if not ped or ped == 0 or not DoesEntityExist(ped) then
+        return 0
+    end
+
+    return ped
+end
+
+local function GetLocalHealth(ped)
+    ped = ped or GetLocalPlayerPed()
+    if ped == 0 then
+        return 0
+    end
+
+    return math.max(0, math.min(100, GetEntityHealth(ped) - 100))
+end
+
+local function GetLocalArmour(ped)
+    ped = ped or GetLocalPlayerPed()
+    if ped == 0 then
+        return 0
+    end
+
+    return math.max(0, math.min(100, GetPedArmour(ped)))
+end
+
 local function loadMinimapKvs()
     local keys = { x = 'corex_hud_minimap_x', y = 'corex_hud_minimap_y',
                    w = 'corex_hud_minimap_w', h = 'corex_hud_minimap_h',
@@ -487,9 +514,9 @@ CreateThread(function()
     applyMinimapLayout()
     showHud(true)
 
-    local ped = Corex.Functions.GetPed()
-    lastHealth = Corex.Functions.GetHealth()
-    lastArmor = math.max(0, math.min(100, Corex.Functions.GetArmour()))
+    local ped = GetLocalPlayerPed()
+    lastHealth = GetLocalHealth(ped)
+    lastArmor = GetLocalArmour(ped)
 
     local state = LocalPlayer.state
     lastHunger = tonumber(state.hunger) or 100
@@ -502,7 +529,7 @@ CreateThread(function()
     pushFullUpdate()
 
     while true do
-        ped = Corex.Functions.GetPed()
+        ped = GetLocalPlayerPed()
 
         if shouldHideHud() then
             if hudVisible then
@@ -513,8 +540,8 @@ CreateThread(function()
                 showHud(true)
             end
 
-            local health = Corex.Functions.GetHealth()
-            local armor = math.max(0, math.min(100, Corex.Functions.GetArmour()))
+            local health = GetLocalHealth(ped)
+            local armor = GetLocalArmour(ped)
             local talking = NetworkIsPlayerTalking(PlayerId())
             local dirty = false
             local payload = {}

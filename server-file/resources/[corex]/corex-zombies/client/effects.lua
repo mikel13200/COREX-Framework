@@ -17,6 +17,15 @@ local exitCueUntil = 0
 
 local function Cfg() return (Config and Config.Fear) or {} end
 
+local function GetLocalPlayerCoords()
+    local ped = PlayerPedId()
+    if not ped or ped == 0 or not DoesEntityExist(ped) then
+        return nil
+    end
+
+    return GetEntityCoords(ped)
+end
+
 -- Access to activeZombies / grabbingZombie / isGrabbed comes from main.lua
 -- globals. They're defined there; we just read them.
 
@@ -38,7 +47,7 @@ local function DrawSpecialLights(playerCoords)
             local lc = td and td.lightColor
             local lp = lc and lightMap[td.id or '']
             if lc and lp then
-                local zc = GetEntityCoords(z.entity)
+                local zc = ZX.GetZombieCoords and ZX.GetZombieCoords(z, false, now) or GetEntityCoords(z.entity)
                 local dx, dy, dz = zc.x - playerCoords.x, zc.y - playerCoords.y, zc.z - playerCoords.z
                 local d2 = dx*dx + dy*dy + dz*dz
                 if d2 <= max2 and IsEntityOnScreen(z.entity) then
@@ -80,7 +89,7 @@ local function DrawEyeGlow(playerCoords)
 
     for _, z in ipairs(activeZombies or {}) do
         if not z.isDead and DoesEntityExist(z.entity) then
-            local zc = GetEntityCoords(z.entity)
+            local zc = ZX.GetZombieCoords and ZX.GetZombieCoords(z, false, GetGameTimer()) or GetEntityCoords(z.entity)
             local dx, dy, dz = zc.x - playerCoords.x, zc.y - playerCoords.y, zc.z - playerCoords.z
             local d2 = dx*dx + dy*dy + dz*dz
             if d2 <= max2 and IsEntityOnScreen(z.entity) then
@@ -98,7 +107,7 @@ end
 -- Shared screen overlay. Max'd with toxic vignette (never stacked).
 -- Used as data channel by main.lua's render pass (it draws toxic,
 -- we add the fear layer on top once per frame if needed).
-local function ComputeFearVignette(playerCoords)
+local function ComputeFearVignette(summary)
     local cfg = Cfg()
     if cfg.fearVignetteEnabled == false then
         return 0
@@ -107,20 +116,7 @@ local function ComputeFearVignette(playerCoords)
     local startD = cfg.vignetteStartDist or 5.0     -- ≤ this → max alpha
     local maxD   = cfg.vignetteMaxDist or 30.0      -- ≥ this → 0 alpha
     local maxA   = cfg.vignetteMaxAlpha or 64
-
-    local best = 99999.0
-    local best2 = 99999.0 * 99999.0
-    local maxD2 = maxD * maxD
-    for _, z in ipairs(activeZombies or {}) do
-        if not z.isDead and DoesEntityExist(z.entity) then
-            local zc = GetEntityCoords(z.entity)
-            local dx, dy, dz = zc.x - playerCoords.x, zc.y - playerCoords.y, zc.z - playerCoords.z
-            local d2 = dx*dx + dy*dy + dz*dz
-            if d2 < best2 then best2 = d2 end
-        end
-    end
-
-    best = math.sqrt(best2)
+    local best = math.sqrt(summary and summary.nearestDistSq or math.huge)
     if best >= maxD then return 0 end
     if best <= startD then return maxA end
     -- Linear interpolate maxD→0, startD→maxA
@@ -130,15 +126,11 @@ end
 
 -- Heartbeat pulse modifier added on top of the base fear vignette.
 -- Returns (addAlpha, audioIntensity 0-1) — caller applies both.
-local function ComputeHeartbeat(playerCoords, now)
+local function ComputeHeartbeat(summary, now)
     local cfg = Cfg()
-    local radius = cfg.heartbeatRadius or 20.0
     local minCount = cfg.heartbeatMinZombies or 3
 
-    local count = 0
-    if CountZombiesNear then
-        count = CountZombiesNear(playerCoords, radius)
-    end
+    local count = summary and summary.heartbeatCount or 0
     if count < minCount then return 0, 0.0 end
 
     -- Sin oscillation at ~1.1 Hz base, faster as count grows (up to 1.8 Hz).
@@ -170,22 +162,35 @@ CreateThread(function()
             goto continue
         end
 
-        local playerCoords = Corex.Functions.GetCoords()
+        local playerCoords = GetLocalPlayerCoords()
+        if not playerCoords then
+            Wait(250)
+            goto continue
+        end
         local now = GetGameTimer()
+        local summary = (ZX.GetZombieProximitySummary and ZX.GetZombieProximitySummary()) or nil
+        local nearbyCount = summary and summary.nearbyCount or 0
+        local hasSpecial = summary and summary.hasSpecial or false
+        if hasZombies and nearbyCount <= 0 and not hasExitCue then
+            Wait(250)
+            goto continue
+        end
 
         -- Lights & eye glow (only iterate if we have zombies).
-        if hasZombies then
-            DrawSpecialLights(playerCoords)
+        if hasZombies and nearbyCount > 0 then
+            if hasSpecial then
+                DrawSpecialLights(playerCoords)
+            end
             DrawEyeGlow(playerCoords)
         end
 
         -- Composite screen vignette: fear + heartbeat + exit cue.
         -- Pick max alpha across channels — never sum (would blind).
         local fearEnabled = Cfg().fearVignetteEnabled ~= false
-        local baseAlpha = (hasZombies and fearEnabled) and ComputeFearVignette(playerCoords) or 0
+        local baseAlpha = (hasZombies and fearEnabled) and ComputeFearVignette(summary) or 0
         local hbAlpha, hbIntensity = 0, 0.0
         if hasZombies then
-            hbAlpha, hbIntensity = ComputeHeartbeat(playerCoords, now)
+            hbAlpha, hbIntensity = ComputeHeartbeat(summary, now)
         end
         local fearAlpha = math.max(baseAlpha, baseAlpha + hbAlpha)
         if fearEnabled and fearAlpha > 0 then
@@ -207,7 +212,8 @@ CreateThread(function()
         end
 
         local renderWait = Cfg().renderWaitMs
-        Wait(renderWait ~= nil and renderWait or 0)
+        local defaultWait = (Config.Performance and Config.Performance.EffectRenderIntervalMs) or 33
+        Wait(renderWait ~= nil and renderWait or defaultWait)
         ::continue::
     end
 end)

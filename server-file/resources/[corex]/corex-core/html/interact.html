@@ -7,7 +7,18 @@
     <title>COREX Interact</title>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-dark: #0f1012;
+            --bg-panel: rgba(18, 20, 24, 0.96);
+            --bg-panel-light: rgba(30, 34, 40, 0.9);
+            --accent-primary: #8ab82d;
+            --accent-glow: rgba(138, 184, 45, 0.4);
+            --text-main: #e0e0e0;
+            --text-muted: #6b7280;
+            --border-color: #2a2e35;
+        }
 
         * {
             margin: 0;
@@ -21,7 +32,7 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            font-family: 'Rajdhani', sans-serif;
             overflow: hidden;
             display: flex;
             justify-content: center;
@@ -33,109 +44,162 @@
 
         #interact-container {
             position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%) scale(0.9);
+            left: 0;
+            top: 0;
+            --screen-x: 50vw;
+            --screen-y: 50vh;
+            --ui-scale: 0.9;
+            transform: translate3d(calc(var(--screen-x) - 50%), calc(var(--screen-y) - 50%), 0) scale(var(--ui-scale));
             opacity: 0;
-            transition: opacity 0.2s ease, transform 0.2s ease;
+            transition: opacity 0.18s ease, transform 0.06s linear;
             pointer-events: none;
             display: flex;
             align-items: center;
+            will-change: transform, opacity;
         }
 
         #interact-container.visible {
-            transform: translate(-50%, -50%) scale(1);
+            --ui-scale: 1;
             opacity: 1;
         }
 
-        .interact-box {
-            display: flex;
-            align-items: center;
-            background: rgba(10, 15, 30, 0.75);
-            border: 2px solid rgba(129, 140, 248, 0.7);
-            border-radius: 12px;
-            padding: 10px 18px 10px 10px;
-            box-shadow: 0 0 25px rgba(129, 140, 248, 0.5);
-            gap: 12px;
+        #interact-container:not(.visible) {
+            visibility: hidden;
         }
 
-        /* The circular 'E' key */
+        .interact-box {
+            position: relative;
+            display: flex;
+            align-items: center;
+            min-width: 240px;
+            gap: 14px;
+            padding: 10px 18px 10px 10px;
+            background: linear-gradient(135deg, rgba(18, 20, 24, 0.98), rgba(25, 29, 34, 0.94));
+            border: 1px solid var(--border-color);
+            clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+            box-shadow: 0 0 24px rgba(0, 0, 0, 0.45), 0 0 22px var(--accent-glow);
+            overflow: hidden;
+        }
+
+        .interact-box::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border: 1px solid transparent;
+            border-left-color: var(--accent-primary);
+            border-top-color: rgba(255, 255, 255, 0.08);
+            clip-path: inherit;
+            pointer-events: none;
+        }
+
+        .interact-box::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(180deg, var(--accent-primary), rgba(138, 184, 45, 0.2));
+            box-shadow: 0 0 10px rgba(138, 184, 45, 0.28);
+            pointer-events: none;
+        }
+
         .key-ring {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
+            width: 52px;
+            height: 40px;
             position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
-            /* Gradient border effect using pseudo-element or background clip */
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid rgba(255, 255, 255, 0.2);
+            flex-shrink: 0;
+            background: linear-gradient(135deg, var(--accent-primary), #a7da3a);
+            color: var(--bg-dark);
+            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+            box-shadow: 0 0 18px var(--accent-glow);
         }
 
-        /* Animated progress ring (optional, static for now matching ref) */
         .key-ring::after {
             content: '';
             position: absolute;
-            top: -2px;
-            left: -2px;
-            right: -2px;
-            bottom: -2px;
-            border-radius: 50%;
-            border: 2px solid transparent;
-            border-top-color: #818cf8;
-            /* Indigo-400 */
-            border-right-color: #818cf8;
-            transform: rotate(-45deg);
+            inset: 1px;
+            border: 1px solid rgba(15, 16, 18, 0.18);
+            clip-path: inherit;
         }
 
         .key-label {
-            color: #ffffff;
+            color: var(--bg-dark);
             font-weight: 700;
-            font-size: 14px;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+            font-size: 1.05rem;
+            letter-spacing: 1px;
             z-index: 2;
         }
 
         .divider {
             width: 1px;
-            height: 24px;
-            background: rgba(255, 255, 255, 0.15);
+            height: 34px;
+            background: linear-gradient(180deg, rgba(138, 184, 45, 0.15), rgba(138, 184, 45, 0.55), rgba(138, 184, 45, 0.15));
+            flex-shrink: 0;
         }
 
         .content {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            min-width: 0;
         }
 
         .icon-box {
-            color: #38bdf8;
-            /* Sky-400 */
-            font-size: 14px;
+            color: var(--accent-primary);
+            font-size: 15px;
             display: flex;
             align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            border: 1px solid rgba(138, 184, 45, 0.25);
+            background: rgba(138, 184, 45, 0.08);
+            box-shadow: inset 0 0 10px rgba(138, 184, 45, 0.08);
+        }
+
+        .text-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .action-label {
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            line-height: 1;
+            margin-bottom: 2px;
         }
 
         .action-text {
-            color: #f1f5f9;
-            /* Slate-100 */
-            font-weight: 500;
-            font-size: 14px;
-            letter-spacing: 0.01em;
+            color: var(--text-main);
+            font-weight: 700;
+            font-size: 1rem;
+            letter-spacing: 1px;
             white-space: nowrap;
+            text-transform: uppercase;
+            line-height: 1;
         }
 
-        /* Distance indicator/Pulse effect behind key */
         .key-pulse {
             position: absolute;
             width: 100%;
             height: 100%;
-            border-radius: 50%;
-            background: #818cf8;
+            background: var(--accent-primary);
             opacity: 0;
             z-index: 0;
             animation: pulse 2s infinite;
+            clip-path: inherit;
+        }
+
+        #interact-container:not(.visible) .key-pulse {
+            animation: none;
         }
 
         @keyframes pulse {
@@ -171,17 +235,21 @@
                 <div class="icon-box">
                     <i id="action-icon" class="fas fa-hand-paper"></i>
                 </div>
-                <span class="action-text">Interact</span>
+                <div class="text-group">
+                    <span class="action-label">Action</span>
+                    <span class="action-text">Interact</span>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        const container = document.getElementById('interact-container');
+        const textEl = document.querySelector('.action-text');
+        const iconEl = document.getElementById('action-icon');
+
         window.addEventListener('message', function (event) {
             const data = event.data;
-            const container = document.getElementById('interact-container');
-            const textEl = document.querySelector('.action-text');
-            const iconEl = document.getElementById('action-icon');
 
             if (data.action === 'showInteract' || data.action === 'updateInteract') {
                 let cleanText = data.text || 'Interact';
@@ -192,8 +260,8 @@
                 iconEl.classList.add(data.icon || 'fa-hand-paper');
 
                 if (data.x !== undefined && data.y !== undefined) {
-                    container.style.left = (data.x * 100) + '%';
-                    container.style.top = (data.y * 100) + '%';
+                    container.style.setProperty('--screen-x', (data.x * 100) + 'vw');
+                    container.style.setProperty('--screen-y', (data.y * 100) + 'vh');
                 }
 
                 container.classList.add('visible');
